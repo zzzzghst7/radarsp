@@ -1,0 +1,13 @@
+{
+  "nome": "DETECTOR INFALÍVEL DE RADARES ULTRON MEGA V5",
+  "tipo": "resumo_estatistico_sem_posicoes",
+  "cet_registros_sem_desativacao": 879,
+  "bunda_registros_sp": 0,
+  "municipios": [],
+  "limites_publicados": [],
+  "qualidade_coordenadas": {},
+  "situacoes": {},
+  "fontes_originais": [],
+  "completude_confirmada": false,
+  "observacao": "A fonte Bunda de Urso ainda não foi sincronizada neste pacote inicial. A primeira execução do GitHub Actions atualizará as estatísticas quando a API estiver disponível. O nome do app é uma brincadeira; os dados não garantem cobertura completa."
+}

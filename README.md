@@ -1,77 +1,42 @@
-# RadarSP v0.3 — Localização opcional e modo simulação
+# DETECTOR INFALÍVEL DE RADARES ULTRON MEGA V5
 
-Protótipo com **MapLibre GL JS + MapLibre/OpenFreeMap**, base CET-SP e GPS por permissão. Sem custo de API de mapas no protótipo; o mapa de fundo e as bibliotecas são carregados pela internet.
+**Protótipo de painel estatístico de segurança viária (sem detector de fiscalização em rota).**
 
-## Novidades da v0.3
+O nome é propositalmente humorístico: não há garantia de abrangência total. Esta V5 não identifica ou avisa sobre radares à frente ou ultrapassados. Ela mostra um mapa-base de São Paulo, a localização voluntária do usuário, estatísticas por município, alguns limites regulamentados informados na base e origem das informações.
 
-- Botão **Ativar GPS**: pede permissão *somente ao ser clicado* e acompanha a posição através da `Geolocation API` do navegador.
-- Marcador azul, círculo de **precisão aproximada**, indicação de rumo (quando disponível) e horário da última atualização.
-- Botões **Centralizar** (volta a seguir após mexer no mapa) e **Encerrar** (remove marcador e interrompe o acompanhamento).
-- **Simular trajeto**: desloca um marcador amarelo por uma linha **fictícia** perto da Avenida Paulista; pausar, continuar e reiniciar. Não usa localização real.
-- Os **879 registros** de radar da base inicial continuam no mapa com clustering, filtros e popups.
-- Preservados `sincronizar_radares.py`, `gerar_geojson.py` e a rotina `.github/workflows/atualizar.yml`. A atualização diária é configurada quando o projeto estiver em um repositório GitHub seu.
+## Fontes e créditos
 
-**Ainda não implementado:** roteamento, map matching, reconhecimento de pista, status de *radar à frente / já passou*, alertas em tempo real, navegação em segundo plano. Esses itens requerem etapas posteriores e validação da confiabilidade.
+- **Bunda de Urso / Challado**, API pública (`/api/v1/radares/busca?uf=SP`), dados sob CC BY 4.0, sujeitos à origem e às condições de cada fonte: https://github.com/Challado/Bunda-de-Urso
+- **CET-SP**: https://github.com/cetsp-dados/dados-fiscalizacao-eletronica
+- **MapLibre GL JS**: https://maplibre.org
+- **OpenFreeMap**: https://openfreemap.org
 
-## Executar no Windows (PC)
+Código escrito de forma independente; não clona o sistema de terceiros.
 
-1. Extraia este ZIP.
-2. Abra o CMD dentro da pasta `RadarSP` (onde está `index.html`).
-3. Execute:
+## O que muda em relação ao v0.4
 
-```bat
+A página passa a mostrar os registros de SP agregados por município. O sincronizador busca a fonte com paginação completa, valida o envelope JSON e salva **apenas contagens, categorias e metadados de cobertura**. Não salva nem publica as coordenadas, os IDs dos equipamentos ou os pontos individuais da API Bunda de Urso. Se a API falhar ou voltar vazia, preserva a última base válida. As informações do GPS permanecem no navegador e não são enviadas à API do projeto.
+
+A amostra inicial tem CET=879 e Bunda=0; **zero significa ainda não sincronizado, não ausência de radares**. A API não pôde ser consultada em tempo real neste ambiente. Depois de configurar e executar o workflow, os dados da fonte externa serão populados caso ela esteja disponível.
+
+## Atualizando o seu GitHub Pages sem terminal
+
+1. No repositório `radarsp` abra `Code → Add file → Upload files`. Envie os arquivos `index.html`, `atualizar_fontes.py`, `test_v5_fontes.py` e `data/resumo_fontes_sp.json`. O `index.html` deve ficar na raiz e `data/` na pasta `data`.
+2. Abra o workflow que você já tem em `.github/workflows/atualizar.yml`. Clique no lápis e **substitua todo o conteúdo** pelo conteúdo do arquivo com o mesmo caminho que está dentro deste ZIP. Confirme o commit. Para contornar o aviso “file is hidden”, crie/edite a pasta pelo editor web, não pelo seletor de uploads.
+3. Em `Settings → Pages`, confira `Source: GitHub Actions`.
+4. Abra `Actions → V5 - Resumo seguro de fiscalizacao SP → Run workflow` e execute na branch `main`.
+5. Quando o workflow publicar o site, abra o mesmo link GitHub Pages. Às vezes é preciso recarregar sem cache para ver o HTML novo.
+
+**Atenção:** o novo workflow substitui a publicação anterior. Não instale um segundo workflow de publicação simultâneo, pois ele pode sobrescrever o site. Seu antigo workflow `atualizar.yml` será substituído, portanto não precisa de `PUBLICAR_SITE=sim`.
+
+A execução será agendada todos os dias por volta de 06h17 (São Paulo), com eventual atraso de execução do GitHub Actions.
+
+## Testar no Windows
+
+```bash
 python -m http.server 8000
 ```
 
-4. Entre em **http://localhost:8000**. O `localhost` é aceito como origem segura nos navegadores modernos, então o botão **Ativar GPS** pode funcionar se você conceder permissão. Um PC sem receptor GPS costuma retornar localização aproximada ou indisponível. **Simular trajeto** funciona sem permissão de localização.
+Abrir `http://localhost:8000`. Para validar os testes, execute `python -m unittest discover -p "test_v5_*.py" -v`. Para obter os dados agregados do Bunda de Urso, `python atualizar_fontes.py` (exige internet).
 
-A biblioteca MapLibre e o mapa-base exigem internet. **Não** abra `index.html` diretamente usando `file://`.
-
-## Testar no celular
-
-Para que o navegador solicite a localização real no celular, publique via **HTTPS**. É possível usar **GitHub Pages** (configuração abaixo). **http://IP-DO-PC:8000**, aberto pelo celular, geralmente **não** permite geolocalização por não ser contexto seguro. Não é necessário comprar ou instalar WSL.
-
-No celular: abra o endereço HTTPS do seu projeto, toque **Ativar GPS**, aceite a permissão do navegador e veja o ponto azul. Ao arrastar o mapa, o acompanhamento automático para; toque **Centralizar** para retomar. **Encerrar** desliga o monitoramento. Mantenha a tela ativa durante os testes: navegadores móveis podem pausar GPS em segundo plano.
-
-Se o navegador negar acesso, confira permissões do site e de localização do aparelho. O RadarSP não solicita localização automaticamente.
-
-## Publicar no GitHub Pages e ativar atualização diária
-
-1. Envie a pasta do projeto para um repositório GitHub seu.
-2. Em **Settings → Actions → General → Workflow permissions**, conceda permissão de escrita ao workflow, quando permitido.
-3. Em **Settings → Pages → Build and deployment**, selecione **GitHub Actions**.
-4. Em **Settings → Secrets and variables → Actions → Variables**, crie `PUBLICAR_SITE=sim`.
-5. Em **Actions → Atualizar base pública CET-SP**, use **Run workflow** para publicar a primeira versão e executar a sincronização. O cron incluído procura novos dados diariamente às **06h17, horário de São Paulo**. O GitHub pode atrasar execuções e aplicar limites.
-
-Para atualizar manualmente a base dos radares:
-
-```bat
-python sincronizar_radares.py
-```
-
-## Testes
-
-```bat
-python -m unittest -v
-```
-
-Para testar somente os cálculos geográficos (opcional: Node.js):
-
-```bat
-node test_localizacao.mjs
-```
-
-A interface roda em navegador sem Node.js.
-
-## Privacidade e limitações
-
-A posição informada ao navegador não é armazenada pelo RadarSP e não é enviada ao seu próprio backend nesta versão. O mapa-base carrega arquivos de terceiros (OpenFreeMap/CDN), como num mapa web normal. O botão **Encerrar** chama `clearWatch`, remove os elementos de localização e interrompe a atualização no aplicativo. O próprio navegador/sistema controla permissões e disponibilidade do GPS.
-
-**Não interaja com a interface enquanto dirige.** GPS e coordenadas da base pública têm incertezas; nenhum dado do mapa deve substituir a sinalização da rua. Registros com campo `DESATIVAÇÃO` vazio são **candidatos** a ativos, sem comprovação de funcionamento físico em tempo real.
-
-## Fontes
-
-- CET-SP: https://github.com/cetsp-dados/dados-fiscalizacao-eletronica
-- MapLibre GL JS: https://github.com/maplibre/maplibre-gl-js
-- OpenFreeMap: https://openfreemap.org
-- Geolocation API: https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/watchPosition
+O navegador exige HTTPS (ou localhost) para autorizar o GPS. O mapa requer internet para os mapas-base. Não interaja com a tela enquanto dirige. O cadastro não substitui sinalização e regras de trânsito.
