@@ -1,13 +1,1611 @@
 {
-  "nome": "DETECTOR INFALÍVEL DE RADARES ULTRON MEGA V5",
-  "tipo": "resumo_estatistico_sem_posicoes",
+  "bunda_registros_sp": 15166,
   "cet_registros_sem_desativacao": 879,
-  "bunda_registros_sp": 0,
-  "municipios": [],
-  "limites_publicados": [],
-  "qualidade_coordenadas": {},
-  "situacoes": {},
-  "fontes_originais": [],
   "completude_confirmada": false,
-  "observacao": "A fonte Bunda de Urso ainda não foi sincronizada neste pacote inicial. A primeira execução do GitHub Actions atualizará as estatísticas quando a API estiver disponível. O nome do app é uma brincadeira; os dados não garantem cobertura completa."
+  "creditos": {
+    "bunda": "https://github.com/Challado/Bunda-de-Urso",
+    "cet": "https://github.com/cetsp-dados/dados-fiscalizacao-eletronica"
+  },
+  "fontes_originais": [
+    {
+      "nome": "INMETRO / PSIE - Instrumentos verificados (medidores de velocidade)",
+      "registros": 23115
+    },
+    {
+      "nome": "ANTT - Dados dos radares em rodovias concedidas",
+      "registros": 5601
+    },
+    {
+      "nome": "PRF - Radares fixos",
+      "registros": 1541
+    },
+    {
+      "nome": "DER-SP - Radares estaduais",
+      "registros": 1176
+    },
+    {
+      "nome": "CET Sao Paulo - Fiscalizacao eletronica",
+      "registros": 889
+    },
+    {
+      "nome": "DNIT - Controle de velocidade (PNCV)",
+      "registros": 61
+    }
+  ],
+  "limites_publicados": [
+    {
+      "limite": "30 km/h",
+      "registros": 1
+    },
+    {
+      "limite": "40 km/h",
+      "registros": 318
+    },
+    {
+      "limite": "50 km/h",
+      "registros": 603
+    },
+    {
+      "limite": "60 km/h",
+      "registros": 213
+    },
+    {
+      "limite": "70 km/h",
+      "registros": 13
+    },
+    {
+      "limite": "80 km/h",
+      "registros": 79
+    },
+    {
+      "limite": "90 km/h",
+      "registros": 16
+    },
+    {
+      "limite": "100 km/h",
+      "registros": 65
+    },
+    {
+      "limite": "110 km/h",
+      "registros": 45
+    },
+    {
+      "limite": "120 km/h",
+      "registros": 5
+    }
+  ],
+  "municipios": [
+    {
+      "nome": "São Paulo",
+      "registros": 5658
+    },
+    {
+      "nome": "Araçoiaba da Serra",
+      "registros": 847
+    },
+    {
+      "nome": "Campinas",
+      "registros": 584
+    },
+    {
+      "nome": "Guarulhos",
+      "registros": 400
+    },
+    {
+      "nome": "Taubaté",
+      "registros": 260
+    },
+    {
+      "nome": "São Bernardo do Campo",
+      "registros": 175
+    },
+    {
+      "nome": "Piracicaba",
+      "registros": 171
+    },
+    {
+      "nome": "Sorocaba",
+      "registros": 162
+    },
+    {
+      "nome": "Mogi das Cruzes",
+      "registros": 156
+    },
+    {
+      "nome": "Jundiaí",
+      "registros": 146
+    },
+    {
+      "nome": "Rio Claro",
+      "registros": 145
+    },
+    {
+      "nome": "São José dos Campos",
+      "registros": 143
+    },
+    {
+      "nome": "São José do Rio Preto",
+      "registros": 143
+    },
+    {
+      "nome": "Santo André",
+      "registros": 136
+    },
+    {
+      "nome": "Ribeirão Preto",
+      "registros": 132
+    },
+    {
+      "nome": "Hortolândia",
+      "registros": 128
+    },
+    {
+      "nome": "Marília",
+      "registros": 121
+    },
+    {
+      "nome": "Bauru",
+      "registros": 119
+    },
+    {
+      "nome": "São Carlos",
+      "registros": 118
+    },
+    {
+      "nome": "Guarujá",
+      "registros": 115
+    },
+    {
+      "nome": "Jacareí",
+      "registros": 110
+    },
+    {
+      "nome": "Santos",
+      "registros": 105
+    },
+    {
+      "nome": "Embu das Artes",
+      "registros": 101
+    },
+    {
+      "nome": "Araraquara",
+      "registros": 100
+    },
+    {
+      "nome": "Mauá",
+      "registros": 100
+    },
+    {
+      "nome": "Sumaré",
+      "registros": 97
+    },
+    {
+      "nome": "Osasco",
+      "registros": 94
+    },
+    {
+      "nome": "Bragança Paulista",
+      "registros": 92
+    },
+    {
+      "nome": "Pindamonhangaba",
+      "registros": 86
+    },
+    {
+      "nome": "São Sebastião",
+      "registros": 83
+    },
+    {
+      "nome": "Americana",
+      "registros": 80
+    },
+    {
+      "nome": "Diadema",
+      "registros": 74
+    },
+    {
+      "nome": "Santana de Parnaíba",
+      "registros": 71
+    },
+    {
+      "nome": "Presidente Prudente",
+      "registros": 70
+    },
+    {
+      "nome": "Cubatão",
+      "registros": 64
+    },
+    {
+      "nome": "Campos do Jordão",
+      "registros": 63
+    },
+    {
+      "nome": "Santa Bárbara d'Oeste",
+      "registros": 62
+    },
+    {
+      "nome": "Suzano",
+      "registros": 60
+    },
+    {
+      "nome": "Limeira",
+      "registros": 58
+    },
+    {
+      "nome": "Carapicuíba",
+      "registros": 58
+    },
+    {
+      "nome": "Aparecida",
+      "registros": 56
+    },
+    {
+      "nome": "Ribeirão Pires",
+      "registros": 56
+    },
+    {
+      "nome": "Cajamar",
+      "registros": 54
+    },
+    {
+      "nome": "Itapecerica da Serra",
+      "registros": 50
+    },
+    {
+      "nome": "Cotia",
+      "registros": 49
+    },
+    {
+      "nome": "Valinhos",
+      "registros": 48
+    },
+    {
+      "nome": "Itaquaquecetuba",
+      "registros": 48
+    },
+    {
+      "nome": "Arujá",
+      "registros": 47
+    },
+    {
+      "nome": "Itapevi",
+      "registros": 46
+    },
+    {
+      "nome": "São Caetano do Sul",
+      "registros": 45
+    },
+    {
+      "nome": "Caraguatatuba",
+      "registros": 44
+    },
+    {
+      "nome": "Ubatuba",
+      "registros": 42
+    },
+    {
+      "nome": "Amparo",
+      "registros": 42
+    },
+    {
+      "nome": "Jaú",
+      "registros": 42
+    },
+    {
+      "nome": "Votuporanga",
+      "registros": 40
+    },
+    {
+      "nome": "São Vicente",
+      "registros": 39
+    },
+    {
+      "nome": "Atibaia",
+      "registros": 39
+    },
+    {
+      "nome": "Caçapava",
+      "registros": 38
+    },
+    {
+      "nome": "Paulínia",
+      "registros": 38
+    },
+    {
+      "nome": "Botucatu",
+      "registros": 37
+    },
+    {
+      "nome": "Bertioga",
+      "registros": 37
+    },
+    {
+      "nome": "Franco da Rocha",
+      "registros": 35
+    },
+    {
+      "nome": "Taboão da Serra",
+      "registros": 35
+    },
+    {
+      "nome": "Cajati",
+      "registros": 33
+    },
+    {
+      "nome": "Mogi Mirim",
+      "registros": 32
+    },
+    {
+      "nome": "Avaré",
+      "registros": 32
+    },
+    {
+      "nome": "Indaiatuba",
+      "registros": 32
+    },
+    {
+      "nome": "Mogi Guaçu",
+      "registros": 31
+    },
+    {
+      "nome": "Itu",
+      "registros": 31
+    },
+    {
+      "nome": "Cruzeiro",
+      "registros": 30
+    },
+    {
+      "nome": "Águas de Lindóia",
+      "registros": 30
+    },
+    {
+      "nome": "Vinhedo",
+      "registros": 30
+    },
+    {
+      "nome": "Barretos",
+      "registros": 30
+    },
+    {
+      "nome": "Capivari",
+      "registros": 30
+    },
+    {
+      "nome": "Franca",
+      "registros": 28
+    },
+    {
+      "nome": "Paraibuna",
+      "registros": 28
+    },
+    {
+      "nome": "Miracatu",
+      "registros": 27
+    },
+    {
+      "nome": "Lorena",
+      "registros": 26
+    },
+    {
+      "nome": "Itatiba",
+      "registros": 26
+    },
+    {
+      "nome": "Serra Negra",
+      "registros": 26
+    },
+    {
+      "nome": "Ferraz de Vasconcelos",
+      "registros": 25
+    },
+    {
+      "nome": "Santa Cruz do Rio Pardo",
+      "registros": 24
+    },
+    {
+      "nome": "Piedade",
+      "registros": 24
+    },
+    {
+      "nome": "Guararema",
+      "registros": 23
+    },
+    {
+      "nome": "Guaratinguetá",
+      "registros": 23
+    },
+    {
+      "nome": "Várzea Paulista",
+      "registros": 23
+    },
+    {
+      "nome": "Barueri",
+      "registros": 23
+    },
+    {
+      "nome": "Jaboticabal",
+      "registros": 21
+    },
+    {
+      "nome": "Barra do Turvo",
+      "registros": 20
+    },
+    {
+      "nome": "Santa Isabel",
+      "registros": 20
+    },
+    {
+      "nome": "Boituva",
+      "registros": 19
+    },
+    {
+      "nome": "Bariri",
+      "registros": 19
+    },
+    {
+      "nome": "Itápolis",
+      "registros": 19
+    },
+    {
+      "nome": "Monte Alto",
+      "registros": 18
+    },
+    {
+      "nome": "São Luiz do Paraitinga",
+      "registros": 18
+    },
+    {
+      "nome": "Araçatuba",
+      "registros": 18
+    },
+    {
+      "nome": "Itirapina",
+      "registros": 18
+    },
+    {
+      "nome": "Tupã",
+      "registros": 18
+    },
+    {
+      "nome": "Mairiporã",
+      "registros": 17
+    },
+    {
+      "nome": "Iguape",
+      "registros": 17
+    },
+    {
+      "nome": "São Roque",
+      "registros": 17
+    },
+    {
+      "nome": "Campo Limpo Paulista",
+      "registros": 16
+    },
+    {
+      "nome": "Pederneiras",
+      "registros": 16
+    },
+    {
+      "nome": "Rancharia",
+      "registros": 16
+    },
+    {
+      "nome": "Pirassununga",
+      "registros": 16
+    },
+    {
+      "nome": "Sertãozinho",
+      "registros": 16
+    },
+    {
+      "nome": "Itapeva",
+      "registros": 15
+    },
+    {
+      "nome": "Itararé",
+      "registros": 15
+    },
+    {
+      "nome": "Lençóis Paulista",
+      "registros": 15
+    },
+    {
+      "nome": "Bastos",
+      "registros": 15
+    },
+    {
+      "nome": "Teodoro Sampaio",
+      "registros": 15
+    },
+    {
+      "nome": "Aguaí",
+      "registros": 15
+    },
+    {
+      "nome": "Assis",
+      "registros": 15
+    },
+    {
+      "nome": "Pirangi",
+      "registros": 15
+    },
+    {
+      "nome": "Araras",
+      "registros": 15
+    },
+    {
+      "nome": "Praia Grande",
+      "registros": 15
+    },
+    {
+      "nome": "Paraguaçu Paulista",
+      "registros": 14
+    },
+    {
+      "nome": "Caieiras",
+      "registros": 14
+    },
+    {
+      "nome": "Vargem Grande do Sul",
+      "registros": 14
+    },
+    {
+      "nome": "Corumbataí",
+      "registros": 14
+    },
+    {
+      "nome": "Juquiá",
+      "registros": 14
+    },
+    {
+      "nome": "Mongaguá",
+      "registros": 14
+    },
+    {
+      "nome": "Itapira",
+      "registros": 13
+    },
+    {
+      "nome": "Tatuí",
+      "registros": 13
+    },
+    {
+      "nome": "Santo Antônio do Pinhal",
+      "registros": 13
+    },
+    {
+      "nome": "Embu-Guaçu",
+      "registros": 13
+    },
+    {
+      "nome": "São José do Rio Pardo",
+      "registros": 13
+    },
+    {
+      "nome": "Santa Gertrudes",
+      "registros": 13
+    },
+    {
+      "nome": "Bebedouro",
+      "registros": 13
+    },
+    {
+      "nome": "Taquaritinga",
+      "registros": 13
+    },
+    {
+      "nome": "Martinópolis",
+      "registros": 13
+    },
+    {
+      "nome": "Boa Esperança do Sul",
+      "registros": 13
+    },
+    {
+      "nome": "Ibitinga",
+      "registros": 12
+    },
+    {
+      "nome": "Cândido Mota",
+      "registros": 12
+    },
+    {
+      "nome": "Piraju",
+      "registros": 12
+    },
+    {
+      "nome": "Presidente Venceslau",
+      "registros": 12
+    },
+    {
+      "nome": "Dracena",
+      "registros": 12
+    },
+    {
+      "nome": "Colina",
+      "registros": 12
+    },
+    {
+      "nome": "Jaguariúna",
+      "registros": 11
+    },
+    {
+      "nome": "Lins",
+      "registros": 11
+    },
+    {
+      "nome": "Cabreúva",
+      "registros": 11
+    },
+    {
+      "nome": "Louveira",
+      "registros": 11
+    },
+    {
+      "nome": "São Pedro",
+      "registros": 11
+    },
+    {
+      "nome": "Cordeirópolis",
+      "registros": 11
+    },
+    {
+      "nome": "Ourinhos",
+      "registros": 11
+    },
+    {
+      "nome": "Poá",
+      "registros": 11
+    },
+    {
+      "nome": "Piracaia",
+      "registros": 10
+    },
+    {
+      "nome": "Capela do Alto",
+      "registros": 10
+    },
+    {
+      "nome": "Porto Feliz",
+      "registros": 10
+    },
+    {
+      "nome": "Arealva",
+      "registros": 10
+    },
+    {
+      "nome": "Matão",
+      "registros": 10
+    },
+    {
+      "nome": "Tremembé",
+      "registros": 10
+    },
+    {
+      "nome": "Olímpia",
+      "registros": 10
+    },
+    {
+      "nome": "Catiguá",
+      "registros": 10
+    },
+    {
+      "nome": "Indiana",
+      "registros": 10
+    },
+    {
+      "nome": "Cabrália Paulista",
+      "registros": 10
+    },
+    {
+      "nome": "Itaí",
+      "registros": 10
+    },
+    {
+      "nome": "Santa Rita do Passa Quatro",
+      "registros": 10
+    },
+    {
+      "nome": "Itaporanga",
+      "registros": 10
+    },
+    {
+      "nome": "Cravinhos",
+      "registros": 10
+    },
+    {
+      "nome": "Ibiúna",
+      "registros": 10
+    },
+    {
+      "nome": "Cachoeira Paulista",
+      "registros": 9
+    },
+    {
+      "nome": "São Miguel Arcanjo",
+      "registros": 9
+    },
+    {
+      "nome": "Itaju",
+      "registros": 9
+    },
+    {
+      "nome": "Garça",
+      "registros": 9
+    },
+    {
+      "nome": "Pedregulho",
+      "registros": 9
+    },
+    {
+      "nome": "São Lourenço da Serra",
+      "registros": 8
+    },
+    {
+      "nome": "Salto",
+      "registros": 8
+    },
+    {
+      "nome": "Capão Bonito",
+      "registros": 8
+    },
+    {
+      "nome": "Porangaba",
+      "registros": 8
+    },
+    {
+      "nome": "Palmital",
+      "registros": 8
+    },
+    {
+      "nome": "Batatais",
+      "registros": 8
+    },
+    {
+      "nome": "São Simão",
+      "registros": 8
+    },
+    {
+      "nome": "José Bonifácio",
+      "registros": 8
+    },
+    {
+      "nome": "Santa Fé do Sul",
+      "registros": 8
+    },
+    {
+      "nome": "Salesópolis",
+      "registros": 8
+    },
+    {
+      "nome": "Águas da Prata",
+      "registros": 8
+    },
+    {
+      "nome": "Taiúva",
+      "registros": 8
+    },
+    {
+      "nome": "Fernando Prestes",
+      "registros": 8
+    },
+    {
+      "nome": "Araçariguama",
+      "registros": 8
+    },
+    {
+      "nome": "São Joaquim da Barra",
+      "registros": 8
+    },
+    {
+      "nome": "Jardinópolis",
+      "registros": 8
+    },
+    {
+      "nome": "Echaporã",
+      "registros": 8
+    },
+    {
+      "nome": "Agudos",
+      "registros": 8
+    },
+    {
+      "nome": "Guatapará",
+      "registros": 8
+    },
+    {
+      "nome": "Nova Granada",
+      "registros": 7
+    },
+    {
+      "nome": "São Manuel",
+      "registros": 7
+    },
+    {
+      "nome": "Guariba",
+      "registros": 7
+    },
+    {
+      "nome": "Piquete",
+      "registros": 7
+    },
+    {
+      "nome": "Florínea",
+      "registros": 7
+    },
+    {
+      "nome": "Cerqueira César",
+      "registros": 7
+    },
+    {
+      "nome": "Novo Horizonte",
+      "registros": 7
+    },
+    {
+      "nome": "Biritiba Mirim",
+      "registros": 7
+    },
+    {
+      "nome": "Mirante do Paranapanema",
+      "registros": 7
+    },
+    {
+      "nome": "Iracemápolis",
+      "registros": 7
+    },
+    {
+      "nome": "Analândia",
+      "registros": 7
+    },
+    {
+      "nome": "Miguelópolis",
+      "registros": 7
+    },
+    {
+      "nome": "Brotas",
+      "registros": 7
+    },
+    {
+      "nome": "Dois Córregos",
+      "registros": 7
+    },
+    {
+      "nome": "Inúbia Paulista",
+      "registros": 7
+    },
+    {
+      "nome": "Junqueirópolis",
+      "registros": 7
+    },
+    {
+      "nome": "Mineiros do Tietê",
+      "registros": 7
+    },
+    {
+      "nome": "Francisco Morato",
+      "registros": 7
+    },
+    {
+      "nome": "Pongaí",
+      "registros": 7
+    },
+    {
+      "nome": "Lavrinhas",
+      "registros": 6
+    },
+    {
+      "nome": "Socorro",
+      "registros": 6
+    },
+    {
+      "nome": "Apiaí",
+      "registros": 6
+    },
+    {
+      "nome": "Bofete",
+      "registros": 6
+    },
+    {
+      "nome": "Reginópolis",
+      "registros": 6
+    },
+    {
+      "nome": "Iacanga",
+      "registros": 6
+    },
+    {
+      "nome": "Macatuba",
+      "registros": 6
+    },
+    {
+      "nome": "Pariquera-Açu",
+      "registros": 6
+    },
+    {
+      "nome": "Eldorado",
+      "registros": 6
+    },
+    {
+      "nome": "Jacupiranga",
+      "registros": 6
+    },
+    {
+      "nome": "Sete Barras",
+      "registros": 6
+    },
+    {
+      "nome": "Cunha",
+      "registros": 6
+    },
+    {
+      "nome": "Redenção da Serra",
+      "registros": 6
+    },
+    {
+      "nome": "Natividade da Serra",
+      "registros": 6
+    },
+    {
+      "nome": "Águas de Santa Bárbara",
+      "registros": 6
+    },
+    {
+      "nome": "Fartura",
+      "registros": 6
+    },
+    {
+      "nome": "Ipaussu",
+      "registros": 6
+    },
+    {
+      "nome": "Cajuru",
+      "registros": 6
+    },
+    {
+      "nome": "Pradópolis",
+      "registros": 6
+    },
+    {
+      "nome": "Sales Oliveira",
+      "registros": 6
+    },
+    {
+      "nome": "Tanabi",
+      "registros": 6
+    },
+    {
+      "nome": "Monte Aprazível",
+      "registros": 6
+    },
+    {
+      "nome": "Fernandópolis",
+      "registros": 6
+    },
+    {
+      "nome": "Jales",
+      "registros": 6
+    },
+    {
+      "nome": "Jandira",
+      "registros": 6
+    },
+    {
+      "nome": "Rio Grande da Serra",
+      "registros": 6
+    },
+    {
+      "nome": "Rosana",
+      "registros": 6
+    },
+    {
+      "nome": "Tupi Paulista",
+      "registros": 6
+    },
+    {
+      "nome": "Euclides da Cunha Paulista",
+      "registros": 6
+    },
+    {
+      "nome": "Álvares Machado",
+      "registros": 6
+    },
+    {
+      "nome": "Santo Antônio do Jardim",
+      "registros": 6
+    },
+    {
+      "nome": "Espírito Santo do Pinhal",
+      "registros": 6
+    },
+    {
+      "nome": "Nova Odessa",
+      "registros": 6
+    },
+    {
+      "nome": "Guaíra",
+      "registros": 6
+    },
+    {
+      "nome": "Colômbia",
+      "registros": 6
+    },
+    {
+      "nome": "Cedral",
+      "registros": 6
+    },
+    {
+      "nome": "Iacri",
+      "registros": 6
+    },
+    {
+      "nome": "Vera Cruz",
+      "registros": 6
+    },
+    {
+      "nome": "Osvaldo Cruz",
+      "registros": 6
+    },
+    {
+      "nome": "Duartina",
+      "registros": 6
+    },
+    {
+      "nome": "Tarumã",
+      "registros": 6
+    },
+    {
+      "nome": "Pitangueiras",
+      "registros": 6
+    },
+    {
+      "nome": "Orlândia",
+      "registros": 6
+    },
+    {
+      "nome": "Jambeiro",
+      "registros": 6
+    },
+    {
+      "nome": "Cerquilho",
+      "registros": 6
+    },
+    {
+      "nome": "Américo Brasiliense",
+      "registros": 6
+    },
+    {
+      "nome": "Lindóia",
+      "registros": 6
+    },
+    {
+      "nome": "Jarinu",
+      "registros": 5
+    },
+    {
+      "nome": "Pedreira",
+      "registros": 5
+    },
+    {
+      "nome": "Mirassol",
+      "registros": 5
+    },
+    {
+      "nome": "Itariri",
+      "registros": 5
+    },
+    {
+      "nome": "Ipeúna",
+      "registros": 5
+    },
+    {
+      "nome": "Boracéia",
+      "registros": 5
+    },
+    {
+      "nome": "Quatá",
+      "registros": 5
+    },
+    {
+      "nome": "Santa Maria da Serra",
+      "registros": 5
+    },
+    {
+      "nome": "Alambari",
+      "registros": 5
+    },
+    {
+      "nome": "Patrocínio Paulista",
+      "registros": 5
+    },
+    {
+      "nome": "Pardinho",
+      "registros": 5
+    },
+    {
+      "nome": "Santa Cruz da Conceição",
+      "registros": 5
+    },
+    {
+      "nome": "Silveiras",
+      "registros": 4
+    },
+    {
+      "nome": "Pinhalzinho",
+      "registros": 4
+    },
+    {
+      "nome": "Artur Nogueira",
+      "registros": 4
+    },
+    {
+      "nome": "Guareí",
+      "registros": 4
+    },
+    {
+      "nome": "Votorantim",
+      "registros": 4
+    },
+    {
+      "nome": "Itaberá",
+      "registros": 4
+    },
+    {
+      "nome": "Luís Antônio",
+      "registros": 4
+    },
+    {
+      "nome": "Serrana",
+      "registros": 4
+    },
+    {
+      "nome": "Morro Agudo",
+      "registros": 4
+    },
+    {
+      "nome": "Cristais Paulista",
+      "registros": 4
+    },
+    {
+      "nome": "Guapiaçu",
+      "registros": 4
+    },
+    {
+      "nome": "Cardoso",
+      "registros": 4
+    },
+    {
+      "nome": "Pirapora do Bom Jesus",
+      "registros": 4
+    },
+    {
+      "nome": "Nova Independência",
+      "registros": 4
+    },
+    {
+      "nome": "Taciba",
+      "registros": 4
+    },
+    {
+      "nome": "Tambaú",
+      "registros": 4
+    },
+    {
+      "nome": "Severínia",
+      "registros": 4
+    },
+    {
+      "nome": "Regente Feijó",
+      "registros": 4
+    },
+    {
+      "nome": "Parapuã",
+      "registros": 4
+    },
+    {
+      "nome": "Oriente",
+      "registros": 4
+    },
+    {
+      "nome": "Torrinha",
+      "registros": 4
+    },
+    {
+      "nome": "Piratininga",
+      "registros": 4
+    },
+    {
+      "nome": "Pacaembu",
+      "registros": 4
+    },
+    {
+      "nome": "Santa Mercedes",
+      "registros": 4
+    },
+    {
+      "nome": "Adamantina",
+      "registros": 4
+    },
+    {
+      "nome": "Flórida Paulista",
+      "registros": 4
+    },
+    {
+      "nome": "Itapuí",
+      "registros": 4
+    },
+    {
+      "nome": "Monte Mor",
+      "registros": 4
+    },
+    {
+      "nome": "Itapetininga",
+      "registros": 4
+    },
+    {
+      "nome": "Coronel Macedo",
+      "registros": 4
+    },
+    {
+      "nome": "Restinga",
+      "registros": 4
+    },
+    {
+      "nome": "Barra Bonita",
+      "registros": 4
+    },
+    {
+      "nome": "Brodowski",
+      "registros": 4
+    },
+    {
+      "nome": "Dobrada",
+      "registros": 4
+    },
+    {
+      "nome": "Ituverava",
+      "registros": 4
+    },
+    {
+      "nome": "Itupeva",
+      "registros": 3
+    },
+    {
+      "nome": "Lucianópolis",
+      "registros": 3
+    },
+    {
+      "nome": "Itatinga",
+      "registros": 3
+    },
+    {
+      "nome": "Ribeirão Bonito",
+      "registros": 3
+    },
+    {
+      "nome": "Nova Europa",
+      "registros": 3
+    },
+    {
+      "nome": "Dourado",
+      "registros": 3
+    },
+    {
+      "nome": "Gavião Peixoto",
+      "registros": 3
+    },
+    {
+      "nome": "Monteiro Lobato",
+      "registros": 3
+    },
+    {
+      "nome": "São Bento do Sapucaí",
+      "registros": 3
+    },
+    {
+      "nome": "Lagoinha",
+      "registros": 3
+    },
+    {
+      "nome": "Roseira",
+      "registros": 3
+    },
+    {
+      "nome": "Taguaí",
+      "registros": 3
+    },
+    {
+      "nome": "Oscar Bressane",
+      "registros": 3
+    },
+    {
+      "nome": "Altinópolis",
+      "registros": 3
+    },
+    {
+      "nome": "Ibirá",
+      "registros": 3
+    },
+    {
+      "nome": "Divinolândia",
+      "registros": 3
+    },
+    {
+      "nome": "Tapiratiba",
+      "registros": 3
+    },
+    {
+      "nome": "Mococa",
+      "registros": 3
+    },
+    {
+      "nome": "Taquaral",
+      "registros": 3
+    },
+    {
+      "nome": "Conchas",
+      "registros": 3
+    },
+    {
+      "nome": "Mairinque",
+      "registros": 3
+    },
+    {
+      "nome": "Andradina",
+      "registros": 3
+    },
+    {
+      "nome": "Catanduva",
+      "registros": 3
+    },
+    {
+      "nome": "Chavantes",
+      "registros": 3
+    },
+    {
+      "nome": "Porto Ferreira",
+      "registros": 3
+    },
+    {
+      "nome": "Nazaré Paulista",
+      "registros": 2
+    },
+    {
+      "nome": "Morungaba",
+      "registros": 2
+    },
+    {
+      "nome": "Pedra Bela",
+      "registros": 2
+    },
+    {
+      "nome": "Ribeirão Branco",
+      "registros": 2
+    },
+    {
+      "nome": "Ribeira",
+      "registros": 2
+    },
+    {
+      "nome": "Cesário Lange",
+      "registros": 2
+    },
+    {
+      "nome": "Ribeirão Grande",
+      "registros": 2
+    },
+    {
+      "nome": "Registro",
+      "registros": 2
+    },
+    {
+      "nome": "Ipuã",
+      "registros": 2
+    },
+    {
+      "nome": "Itirapuã",
+      "registros": 2
+    },
+    {
+      "nome": "São José da Bela Vista",
+      "registros": 2
+    },
+    {
+      "nome": "Itajobi",
+      "registros": 2
+    },
+    {
+      "nome": "Américo de Campos",
+      "registros": 2
+    },
+    {
+      "nome": "Cosmorama",
+      "registros": 2
+    },
+    {
+      "nome": "Palestina",
+      "registros": 2
+    },
+    {
+      "nome": "Três Fronteiras",
+      "registros": 2
+    },
+    {
+      "nome": "Nhandeara",
+      "registros": 2
+    },
+    {
+      "nome": "Bálsamo",
+      "registros": 2
+    },
+    {
+      "nome": "Igaratá",
+      "registros": 2
+    },
+    {
+      "nome": "Itapura",
+      "registros": 2
+    },
+    {
+      "nome": "Pereira Barreto",
+      "registros": 2
+    },
+    {
+      "nome": "Santópolis do Aguapeí",
+      "registros": 2
+    },
+    {
+      "nome": "Penápolis",
+      "registros": 2
+    },
+    {
+      "nome": "Birigui",
+      "registros": 2
+    },
+    {
+      "nome": "Auriflama",
+      "registros": 2
+    },
+    {
+      "nome": "Marabá Paulista",
+      "registros": 2
+    },
+    {
+      "nome": "Rinópolis",
+      "registros": 2
+    },
+    {
+      "nome": "Estrela do Norte",
+      "registros": 2
+    },
+    {
+      "nome": "Santo Expedito",
+      "registros": 2
+    },
+    {
+      "nome": "Tarabai",
+      "registros": 2
+    },
+    {
+      "nome": "Pirapozinho",
+      "registros": 2
+    },
+    {
+      "nome": "Nantes",
+      "registros": 2
+    },
+    {
+      "nome": "Icém",
+      "registros": 2
+    },
+    {
+      "nome": "Monte Azul Paulista",
+      "registros": 2
+    },
+    {
+      "nome": "Guaraci",
+      "registros": 2
+    },
+    {
+      "nome": "Pindorama",
+      "registros": 2
+    },
+    {
+      "nome": "Uchoa",
+      "registros": 2
+    },
+    {
+      "nome": "Barrinha",
+      "registros": 2
+    },
+    {
+      "nome": "Irapuru",
+      "registros": 2
+    },
+    {
+      "nome": "Gália",
+      "registros": 2
+    },
+    {
+      "nome": "Igarapava",
+      "registros": 2
+    },
+    {
+      "nome": "Jumirim",
+      "registros": 2
+    },
+    {
+      "nome": "Bocaina",
+      "registros": 2
+    },
+    {
+      "nome": "Laranjal Paulista",
+      "registros": 2
+    },
+    {
+      "nome": "Manduri",
+      "registros": 2
+    },
+    {
+      "nome": "Palmares Paulista",
+      "registros": 2
+    },
+    {
+      "nome": "Pilar do Sul",
+      "registros": 2
+    },
+    {
+      "nome": "Salto de Pirapora",
+      "registros": 2
+    },
+    {
+      "nome": "Urupês",
+      "registros": 2
+    },
+    {
+      "nome": "Ilha Comprida",
+      "registros": 1
+    },
+    {
+      "nome": "Monte Castelo",
+      "registros": 1
+    },
+    {
+      "nome": "Angatuba",
+      "registros": 1
+    },
+    {
+      "nome": "Guaiçara",
+      "registros": 1
+    },
+    {
+      "nome": "Pedro de Toledo",
+      "registros": 1
+    },
+    {
+      "nome": "Presidente Bernardes",
+      "registros": 1
+    },
+    {
+      "nome": "Santo Antônio da Alegria",
+      "registros": 1
+    }
+  ],
+  "municipios_nao_identificados": 0,
+  "nome": "DETECTOR INFALÍVEL DE RADARES ULTRON MEGA V5",
+  "observacao": "Resumo informativo; não confirma operação física ou cobertura completa. Respeite a sinalização.",
+  "paginas_origem": 16,
+  "qualidade_coordenadas": {
+    "conflitante": 1,
+    "não informada": 12873,
+    "oficial": 2292
+  },
+  "situacoes": {
+    "ativo": 1045,
+    "desconhecido": 20,
+    "não informada": 14101
+  },
+  "snapshot_origem": "rb-20261104T182822589936Z",
+  "tipo": "resumo_estatistico_sem_posicoes"
 }
