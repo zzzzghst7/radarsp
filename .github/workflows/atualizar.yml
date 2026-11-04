@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p publicar/data
-          cp index.html localizacao.js tabela.html publicar/
+          cp index.html localizacao.js trajetoria.js ajuste_via.js tabela.html publicar/
           cp data/radares_ativos.csv data/radares_ativos.geojson data/resumo.json publicar/data/
 
       - name: Configurar GitHub Pages
