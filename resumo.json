@@ -1,0 +1,14 @@
+{
+  "fonte": "https://raw.githubusercontent.com/cetsp-dados/dados-fiscalizacao-eletronica/main/Base_Locais_Fiscalizados.csv",
+  "origem_entrada": "arquivo_local",
+  "processado_em_utc": "2026-11-04T19:49:13+00:00",
+  "verificado_em_utc": "2026-11-04T19:49:13+00:00",
+  "hash_base": "f2d04b3ac2e47ad32d4a7af43b52ccda2d2c419c3b025432590f5594c15f2631",
+  "total_registros": 2074,
+  "sem_desativacao": 879,
+  "com_desativacao": 1195,
+  "anomalias_datas_invertidas": 16,
+  "alteracoes_desde_ultima_versao": {},
+  "criterio_ativo": "campo DESATIVAÇÃO vazio",
+  "observacao": "Registros baseados em dados públicos; status físico dos equipamentos não é confirmado em tempo real."
+}
