@@ -94,3 +94,157 @@ def fetch_pages(get_page=_http_json, max_pages=100):
             total_reported = declared
         elif isinstance(declared, str) and declared.isdecimal():
             total_reported = int(declared)
+
+        estimated_pages = (
+            max(page_number, math.ceil(total_reported / page_limit))
+            if total_reported is not None else None
+        )
+        page_display = (f'{page_number}/{estimated_pages} (estimado)'
+                        if estimated_pages is not None else f'{page_number}/?')
+        total_display = str(total_reported) if total_reported is not None else '?'
+        elapsed = time.monotonic() - started
+        print(
+            f'[Urso SP] Página {page_display} | '
+            f'{len(result)} nesta página | {len(points)}/{total_display} acumulados | '
+            f'{elapsed:.1f}s decorridos',
+            flush=True,
+        )
+
+        cursor = next_cursor
+        if cursor is None:
+            print(
+                f'[Urso SP] Download concluído: {pages} páginas, '
+                f'{len(points)} registros em {elapsed:.1f}s.',
+                flush=True,
+            )
+            break
+        if cursor in seen:
+            raise RuntimeError('Cursor repetido, download incompleto')
+        seen.add(cursor)
+    else:
+        raise RuntimeError('Limite de páginas; download incompleto')
+    return {
+        'sucesso': True,
+        'resultado': {'pontos': points, 'proximo_cursor': None},
+        'base': base or {}, 'cobertura': coverage or {}, 'paginas': pages,
+    }
+
+
+def _float(value):
+    try:
+        v=float(value)
+        return v if math.isfinite(v) else None
+    except (ValueError,TypeError):return None
+
+
+def _limit(p):
+    # Somente velocidade regulamentada RESOLVIDA e não conflitante. Nunca usar valor nominal do medidor.
+    resolved=p.get('velocidades_resolvidas') or []
+    options=[]
+    for r in resolved if isinstance(resolved,list) else []:
+        if not isinstance(r,dict) or r.get('estado')!='sem_conflito':continue
+        if r.get('categoria') not in (None,'geral'):continue
+        v=_float(r.get('velocidade_kmh'))
+        if v and 10<=v<=140:options.append(int(v))
+    if not options:
+        v=_float(p.get('velocidade_geral_kmh'))
+        if v and 10<=v<=140:options=[int(v)]
+    return str(options[0])+' km/h' if options and len(set(options))==1 else 'Não informado'
+
+
+def parse_candidates(document):
+    pts,cursor=extract_page(document)
+    if cursor:raise ValueError('Importação parcial: cursor restante')
+    features=[];ids=set();invalid=0;without_gps=0;out_of_state=0
+    for p in pts:
+        if not isinstance(p,dict):invalid+=1;continue
+        ident=str(p.get('id') or '').strip()
+        if not ident or ident in ids:continue
+        ids.add(ident)
+        if p.get('removido_em') or p.get('data_inativacao') or str(p.get('situacao_operacional') or '').casefold() in ('inativo','desativado','removido','suspenso'):
+            continue
+        loc=p.get('localizacao') or {}
+        if not isinstance(loc,dict):without_gps+=1;continue
+        lat=_float(loc.get('latitude'));lon=_float(loc.get('longitude'))
+        if lat is None or lon is None:without_gps+=1;continue
+        uf=str(loc.get('uf') or p.get('uf') or '').upper().strip()
+        if (uf and uf!='SP') or not (-26.5<lat<-19.0 and -54.5<lon<-43.5):
+            out_of_state+=1;continue
+        via=p.get('via') or {}
+        endereco=p.get('endereco') or {}
+        if not isinstance(via,dict):via={}
+        if not isinstance(endereco,dict):endereco={}
+        municipality=str(loc.get('municipio') or p.get('municipio') or '').strip()
+        road=str(via.get('codigo') or via.get('nome') or p.get('via_codigo') or endereco.get('logradouro') or '').strip()
+        km=via.get('km',p.get('km',loc.get('km')))
+        km_part=f' · km {km}' if km is not None else ''
+        name=(road+km_part).strip() or str(endereco.get('logradouro') or '').strip()
+        if municipality:name=(name+' · '+municipality).strip(' ·')
+        if not name:name='Ponto cadastrado sem endereço completo'
+        raw_sources=p.get('fontes') or []
+        original_sources=[str(s.get('nome'))[:120] for s in raw_sources if isinstance(s,dict) and s.get('nome')]
+        types=p.get('tipos_radar_presentes') or []
+        if not isinstance(types,list):types=[]
+        precision=_float(loc.get('precisao_metros'))
+        geo_quality=str(loc.get('qualidade') or 'não informada')
+        features.append({
+          'type':'Feature','id':'urso:'+ident,
+          'geometry':{'type':'Point','coordinates':[lon,lat]},
+          'properties':{
+              'codigo':ident,'id_origem':ident,'local':name[:240],
+              'velocidade':_limit(p),'faixa_azul':False,
+              'tipo':', '.join(str(x) for x in types)[:100] or 'Não informado',
+              'fonte':'Bunda de Urso / Challado','fontes':['Bunda de Urso / Challado'],
+              'fontes_originais':original_sources[:8],
+              'url_fonte':'https://github.com/Challado/Bunda-de-Urso',
+              'status_operacional':str(p.get('situacao_operacional') or 'não confirmado'),
+              'confianca':str(p.get('confianca') or 'não avaliada'),
+              'verificacao_status':str(p.get('verificacao_status') or 'não informada'),
+              'qualidade_gps':geo_quality,'precisao_metros':precision,
+              'via_codigo':road,'municipio':municipality,'sentido':', '.join(str(s.get('sentido') or '') for s in (p.get('faixas') or []) if isinstance(s,dict))[:100],
+              'ativacao':p.get('data_inicio_operacao') or '',
+              'origem':'bunda',
+          }
+        })
+    return {'type':'FeatureCollection','features':features}, {
+        'recebidos':len(pts),'geolocalizados_sp':len(features),
+        'sem_gps':without_gps,'fora_sp':out_of_state,'invalidos':invalid,
+        'paginas':document.get('paginas'),
+        'snapshot_id':(document.get('base') or {}).get('snapshot_id'),
+        'cobertura_completa_confirmada':(document.get('cobertura') or {}).get('completude_confirmada') is True,
+    }
+
+
+def atomic_json(path,doc):
+    path.parent.mkdir(parents=True,exist_ok=True)
+    value=json.dumps(doc,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n'
+    if path.exists() and path.read_text(encoding='utf-8')==value:return False
+    tmp=path.with_suffix(path.suffix+'.tmp')
+    tmp.write_text(value,encoding='utf-8')
+    os.replace(tmp,path)
+    return True
+
+
+def save(document,output=OUT,meta_path=META):
+    coll,counts=parse_candidates(document)
+    if not coll['features']:
+        raise ValueError('API sem pontos de SP com GPS: snapshot anterior preservado')
+    atomic_json(output,coll)
+    # Metadados estáveis: sem novo commit em toda execução por causa do relógio
+    atomic_json(meta_path,counts)
+    return counts
+
+
+def main():
+    cli=argparse.ArgumentParser(description=__doc__)
+    group=cli.add_mutually_exclusive_group(required=True)
+    group.add_argument('--online',action='store_true',help='Consulta pública com paginação; requer internet')
+    group.add_argument('--input',type=Path,help='Exportação JSON completa com resultado.pontos')
+    opts=cli.parse_args()
+    d=fetch_pages() if opts.online else json.loads(opts.input.read_text(encoding='utf-8'))
+    result=save(d)
+    print('Bunda de Urso SP: '+json.dumps(result,ensure_ascii=False))
+
+if __name__=='__main__':main()
+
+# ULTRON V5 - FIM DO ARQUIVO COMPLETO - extract_page fetch_pages parse_candidates atomic_json save
