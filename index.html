@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#101a2a" />
+  <meta name="description" content="RadarSP: mapa de locais de fiscalização eletrônica da CET-SP com GPS opcional e simulação." />
+  <title>RadarSP v0.3 — Mapa e localização</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.css" />
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;font-synthesis:none;color:#172b3f;background:#eff3f7}
+    *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden}
+    button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #5dbdc7;outline-offset:2px}
+    .app{display:grid;grid-template-columns:348px minmax(0,1fr);height:100dvh;min-height:580px}
+    .sidebar{z-index:5;display:flex;flex-direction:column;min-height:0;background:#fff;border-right:1px solid #dbe3eb;box-shadow:8px 0 30px rgba(22,40,64,.06)}
+    .head{background:#101c2f;color:#f6fbff;padding:24px 23px 23px}
+    .brand{display:flex;gap:11px;align-items:center}
+    .logo{display:grid;place-items:center;width:41px;height:41px;border:1px solid #529ca5;border-radius:13px;background:linear-gradient(145deg,#183b48,#236879);font-size:22px;box-shadow:0 0 0 3px rgba(61,191,191,.07)}
+    .brand strong{letter-spacing:-.9px;font-size:22px;font-weight:800}.brand strong em{font-style:normal;color:#65d6ca}
+    .brand small{display:block;color:#a7bed0;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-top:3px}
+    .strap{font-size:12px;line-height:1.58;margin:21px 0 0;color:#b1c7d6;max-width:285px}
+    .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}
+    .metric{padding:13px 12px;background:#182a42;border:1px solid #2c3f55;border-radius:12px}
+    .metric b{display:block;font-size:24px;line-height:1.2;letter-spacing:-1px;font-variant-numeric:tabular-nums}.metric span{display:block;margin-top:5px;color:#afc1d1;font-size:11px}
+    .filterarea{padding:22px 22px 18px;border-bottom:1px solid #edf0f4}
+    .section-title{color:#33455b;font-size:11px;font-weight:800;letter-spacing:1.4px;margin:0 0 13px;text-transform:uppercase}
+    .field{margin-bottom:14px}
+    .field label{font-size:12px;color:#536477;font-weight:700;display:block;margin-bottom:7px}
+    .searchbox{position:relative}.searchbox input{width:100%;height:43px;border:1px solid #d6e1ea;background:#f8fafc;border-radius:10px;padding:0 11px 0 37px;color:#16293b;outline-offset:1px}
+    .searchbox svg{position:absolute;left:12px;top:12px;color:#7a91a3}
+    select{appearance:none;width:100%;height:43px;padding:0 32px 0 12px;border:1px solid #d6e1ea;background:#f8fafc;color:#1d3449;border-radius:10px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23738b9c' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+    .checkrow{display:flex;align-items:center;gap:10px;font-size:12px;color:#334c60;font-weight:600;cursor:pointer;padding:3px 0}.checkrow input{accent-color:#1f8c8f;width:16px;height:16px}
+    .filterfoot{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+    .filterfoot button{border:0;background:transparent;color:#18747f;font-weight:700;font-size:12px;padding:7px 0}.filterfoot small{font-size:11px;color:#70869b}
+    .results-panel{display:flex;flex-direction:column;min-height:0;flex:1;padding:15px 16px 0}
+    .results-head{display:flex;justify-content:space-between;align-items:center;padding:0 6px 11px}.results-head strong{font-size:13px}.results-head small{font-size:11px;color:#70869b}
+    .results-scroll{overflow:auto;min-height:0;flex:1;padding:0 5px 8px;scrollbar-width:thin;scrollbar-color:#d2dce5 transparent}
+    .result{width:100%;border:1px solid #e8edf1;background:#fff;border-radius:10px;padding:11px 12px;text-align:left;margin-bottom:8px;transition:border-color .16s,background .16s}
+    .result:hover{border-color:#65bdba;background:#f5fcfb}.result strong{font-size:11px;letter-spacing:.15px;display:block;line-height:1.4;word-break:break-word;color:#253e52}
+    .result .meta{display:flex;justify-content:space-between;gap:6px;align-items:center;margin-top:9px;font-size:11px;color:#7b8da0}
+    .pill{border-radius:6px;background:#e7f7f5;color:#0f7672;font-weight:800;padding:4px 6px;white-space:nowrap}.pill.amber{background:#fff1d6;color:#9d630c}
+    .empty{padding:15px;color:#74879b;line-height:1.6;font-size:13px}
+    .bottom{padding:13px 22px 16px;border-top:1px solid #eef0f2;background:#fafcfd}
+    .bottom .source{font-size:11px;color:#5e7081;line-height:1.5}.bottom a{color:#18747f;text-decoration:none;font-weight:700}.bottom a:hover{text-decoration:underline}
+    .bottom .updated{margin-top:7px;font-size:11px;color:#8999a8}
+    .stage{position:relative;min-width:0;background:#dce5e8}
+    #map{position:absolute;inset:0}
+    .floating-header{position:absolute;top:21px;left:22px;right:22px;z-index:3;display:flex;justify-content:space-between;gap:12px;pointer-events:none}
+    .map-title{background:rgba(255,255,255,.96);box-shadow:0 5px 27px rgba(25,42,59,.11);border:1px solid #e5edf2;border-radius:14px;padding:13px 16px;max-width:480px;pointer-events:auto}
+    .map-title strong{font-size:14px;display:block}.map-title small{color:#7b8c9c;font-size:11px;margin-top:5px;display:block}
+    .map-status{align-self:flex-start;background:rgba(255,255,255,.96);box-shadow:0 5px 27px rgba(25,42,59,.11);border:1px solid #e5edf2;border-radius:10px;padding:12px 15px;font-size:11px;color:#526578;pointer-events:auto;white-space:nowrap}
+    .map-status .dot{width:7px;height:7px;background:#2baca0;border-radius:50%;display:inline-block;margin-right:7px}
+    .legend{position:absolute;bottom:35px;left:24px;background:rgba(255,255,255,.97);border:1px solid #e5edf2;border-radius:12px;box-shadow:0 4px 20px rgba(25,42,59,.09);padding:13px 16px;z-index:2;font-size:11px;color:#51667a;line-height:2.2}
+    .legend strong{font-size:11px;color:#31475e;display:block;line-height:1.4;margin-bottom:5px}.legend .circle{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px;box-shadow:0 0 0 2px #fff;vertical-align:-1px;background:#147d83}.legend .circle.amber{background:#e29b28}
+    .maplibregl-ctrl-top-right{top:86px;right:20px}.maplibregl-popup-content{border-radius:13px!important;padding:0!important;box-shadow:0 7px 35px rgba(25,42,59,.2)!important;min-width:260px;max-width:335px}
+    .maplibregl-popup-close-button{font-size:22px;padding:5px 10px;color:#789}
+    .popup{padding:18px 18px 16px}.popup-title{font-size:13px;font-weight:800;color:#263b4f;line-height:1.45;padding-right:15px}.popup-id{font-size:11px;color:#8a9baa;margin-top:6px}.popup-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border-top:1px solid #edf1f3;padding:10px 0;font-size:12px}.popup-row:first-of-type{margin-top:15px}.popup-row span{color:#7b8c9c}.popup-row strong{text-align:right;color:#31485c;max-width:180px}
+    .popup-note{font-size:10px;color:#8194a3;line-height:1.5;margin-top:8px}
+    .loading-overlay{position:absolute;z-index:9;inset:0;background:rgba(248,251,252,.9);display:grid;place-items:center;pointer-events:none;transition:opacity .2s}.loading-overlay.hidden{opacity:0;visibility:hidden}
+    .loading-box{max-width:330px;margin:16px;text-align:center;background:white;border:1px solid #dfe9ed;border-radius:15px;padding:20px 24px;box-shadow:0 5px 35px rgba(18,40,51,.09)}.loading-box strong{display:block;font-size:14px}.loading-box p{font-size:12px;color:#718294;line-height:1.6;margin-bottom:0}
+    @media(max-width:800px){html,body{overflow:auto}.app{display:flex;flex-direction:column;height:auto;min-height:100dvh}.sidebar{order:2;max-height:none}.head{padding:17px 18px 19px}.strap{margin-top:10px}.summary{margin-top:14px}.filterarea{padding:16px 18px}.results-panel{min-height:230px;max-height:400px}.bottom{padding:12px 18px}.stage{order:1;height:60dvh;min-height:380px}.floating-header{top:12px;left:12px;right:12px}.map-title{padding:10px 12px}.map-title small{display:none}.map-status{padding:10px}.maplibregl-ctrl-top-right{top:63px;right:10px}.legend{bottom:19px;left:12px;padding:9px 12px}.legend strong{display:none}}
+    @media(max-width:420px){.map-title strong{font-size:12px}.map-status{font-size:10px}}
+    @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+    /* v0.3 — Painel de localização; responsivo e sempre acessível sobre o mapa. */
+    .gps-hud{position:absolute;z-index:6;bottom:23px;right:22px;width:min(355px,calc(100% - 24px));background:rgba(255,255,255,.97);border:1px solid #dbe7eb;box-shadow:0 14px 40px rgba(16,32,49,.19);border-radius:16px;padding:14px 15px 13px;backdrop-filter:blur(10px)}
+    .gps-hud [hidden]{display:none!important}
+    .gps-hud-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}.gps-hud-header b{font-size:13px;letter-spacing:-.2px;color:#20364d}
+    .gps-tag{border-radius:99px;background:#eaf0f3;color:#5b6d7b;font-size:9px;font-weight:900;letter-spacing:.8px;text-transform:uppercase;padding:6px 9px;white-space:nowrap}
+    .gps-tag[data-mode="gps"]{background:#def8ec;color:#137d52}.gps-tag[data-mode="demo"]{background:#fff0ce;color:#a46900}
+    .gps-message{font-size:11px;line-height:1.5;min-height:32px;color:#586f80;margin:0 0 10px}
+    .gps-message.error{color:#b13c38}.gps-message.success{color:#12784d}
+    .gps-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.gps-btn{min-height:39px;display:flex;justify-content:center;align-items:center;gap:7px;font-size:11px;line-height:1.2;font-weight:800;border:1px solid #d4e1e7;background:#f4f8fa;color:#285065;border-radius:10px;padding:9px 8px;white-space:normal}.gps-btn.primary{background:#137c7e;border-color:#137c7e;color:white}.gps-btn:disabled{cursor:not-allowed;opacity:.55}.gps-btn:hover:not(:disabled){filter:brightness(.96)}
+    .gps-btn.danger{color:#9a403d;background:#fff6f4;border-color:#f3d7d1}.gps-btn.subtle{background:white}
+    .gps-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0 0}.gps-metric{background:#f2f7f9;border:1px solid #e6eef0;border-radius:9px;padding:8px 7px;min-width:0}.gps-metric small{font-size:9px;display:block;color:#718594;margin-bottom:3px}.gps-metric strong{display:block;color:#244054;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+    .gps-note{margin-top:9px;color:#8394a0;font-size:10px;line-height:1.45}.gps-note a{color:#197f8a}
+    .gps-needle{width:23px;height:23px;background:#1667df;border:3px solid white;border-radius:50%;box-shadow:0 0 0 2px #1667df,0 4px 15px rgba(19,79,175,.25);position:relative;transform:translateY(2px)}
+    .gps-needle::before{content:"";position:absolute;left:50%;top:-15px;transform:translateX(-50%);border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:13px solid #1667df;opacity:0}.gps-needle.has-heading::before{opacity:1}
+    .gps-needle.demo{background:#f59e0b;box-shadow:0 0 0 2px #f59e0b,0 4px 15px rgba(200,132,18,.25)}.gps-needle.demo::before{border-bottom-color:#f59e0b}
+    @media(max-width:800px){.gps-hud{bottom:12px;right:12px;padding:11px 12px;width:min(345px,calc(100% - 24px))}.legend{display:none}.stage{height:65dvh;min-height:420px}.gps-hud-header{margin-bottom:4px}.gps-message{min-height:0;margin-bottom:8px}.gps-btn{min-height:36px;padding:7px;font-size:11px}.gps-metrics{margin-top:7px}.gps-note{margin-top:6px}}
+    @media(max-width:390px){.gps-hud{width:calc(100% - 20px);right:10px;bottom:10px}.map-title{max-width:205px}.map-status{display:none}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" aria-label="Busca e filtros de radares">
+    <div class="head">
+      <div class="brand"><div class="logo" aria-hidden="true">⌖</div><div><strong>RADAR<em>SP</em></strong><small>MAPA PÚBLICO · SÃO PAULO</small></div></div>
+      <p class="strap">Explore os registros públicos da CET-SP e, se autorizar, acompanhe sua localização no mapa.</p>
+      <div class="summary">
+        <div class="metric"><b id="count-total">—</b><span>Sem desativação</span></div>
+        <div class="metric"><b id="count-azul">—</b><span>Faixa Azul</span></div>
+      </div>
+    </div>
+    <div class="filterarea">
+      <p class="section-title">Explorar os locais</p>
+      <div class="field"><label for="query">Pesquisar endereço ou código</label><div class="searchbox"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="query" placeholder="Ex.: Avenida Paulista, 1754..." autocomplete="off" /></div></div>
+      <div class="field"><label for="speed">Velocidade cadastrada</label><select id="speed"><option value="all">Todas as velocidades</option></select></div>
+      <label class="checkrow" for="only-azul"><input type="checkbox" id="only-azul" />Mostrar apenas fiscalização Faixa Azul</label>
+      <div class="filterfoot"><small id="filter-summary">Aguardando dados...</small><button id="reset" type="button">Limpar filtros</button></div>
+    </div>
+    <section class="results-panel" aria-label="Lista de locais filtrados"><div class="results-head"><strong>Locais encontrados</strong><small id="result-counter">—</small></div><div class="results-scroll" id="results"><div class="empty">Carregando registros...</div></div></section>
+    <footer class="bottom"><div class="source">Dados: <a href="https://github.com/cetsp-dados/dados-fiscalizacao-eletronica" target="_blank" rel="noopener noreferrer">CET-SP (repositório público)</a> · <a href="tabela.html">Abrir tabela completa</a></div><div id="updated" class="updated">Aguardando metadados...</div><div class="updated">Localização opcional, processada neste navegador; sem envio ao banco do RadarSP. Não use controles enquanto dirige.</div></footer>
+  </aside>
+  <main class="stage" aria-label="Mapa interativo dos locais cadastrados">
+    <div id="map" role="application" aria-label="Mapa interativo de São Paulo com locais de fiscalização"></div>
+    <div class="floating-header"><div class="map-title"><strong>Fiscalização eletrônica · São Paulo</strong><small>Dados públicos da CET-SP · localização aproximada do registro</small></div><div class="map-status"><i class="dot"></i><span id="map-status">Carregando...</span></div></div>
+
+    <section class="gps-hud" aria-label="Localização e simulação">
+      <div class="gps-hud-header"><b>⌖ Sua localização</b><span class="gps-tag" data-mode="idle" id="gps-tag">DESLIGADO</span></div>
+      <p id="gps-message" class="gps-message" role="status" aria-live="polite">Ative o GPS quando quiser. Você pode testar com uma localização simulada.</p>
+      <div class="gps-actions">
+        <button class="gps-btn primary" type="button" id="gps-start">◎ Ativar GPS</button>
+        <button class="gps-btn" type="button" id="demo-start">▷ Simular trajeto</button>
+        <button class="gps-btn subtle" type="button" id="gps-follow" hidden>◉ Seguir posição</button>
+        <button class="gps-btn" type="button" id="demo-pause" hidden>Ⅱ Pausar</button>
+        <button class="gps-btn" type="button" id="demo-reset" hidden>↻ Reiniciar</button>
+        <button class="gps-btn danger" type="button" id="gps-stop" hidden>× Encerrar</button>
+      </div>
+      <div class="gps-metrics" id="gps-metrics" hidden>
+        <div class="gps-metric"><small>Precisão aprox.</small><strong id="gps-accuracy">—</strong></div>
+        <div class="gps-metric"><small>Direção</small><strong id="gps-heading">—</strong></div>
+        <div class="gps-metric"><small>Atualização</small><strong id="gps-time">—</strong></div>
+      </div>
+      <div class="gps-note">GPS exige sua permissão e <strong>HTTPS</strong> (ou localhost). Ainda não há alertas de aproximação de radares.</div>
+    </section>
+    <div class="legend"><strong>Legenda do mapa</strong><div><i class="circle"></i>Equipamento cadastrado</div><div><i class="circle amber"></i>Marcado como Faixa Azul</div></div>
+    <div class="loading-overlay" id="loading"><div class="loading-box"><strong>Carregando mapa e registros</strong><p id="loading-msg">Estamos preparando a visualização dos dados da CET-SP.</p></div></div>
+  </main>
+</div>
+<script type="module">
+  import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.mjs';
+  import {accuracyGeometry,bearingDegrees,cardinal,distanceMeters,DEMO_ROUTE,sampleRoute,geolocationMessage} from './localizacao.js';
+
+  const el = id => document.getElementById(id);
+  const emptyCollection = () => ({type:'FeatureCollection',features:[]});
+  const state = {all:[],filtered:[],ready:false,loaded:false};
+  const styleUrl = 'https://tiles.openfreemap.org/styles/positron';
+  const map = new maplibregl.Map({
+    container:'map', style:styleUrl, center:[-46.6333,-23.5505],zoom:10.7,
+    minZoom:8.5,maxZoom:18,attributionControl:true
+  });
+  map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'top-right');
+  map.addControl(new maplibregl.ScaleControl({maxWidth:110,unit:'metric'}),'bottom-right');
+
+  function showError(error){
+    console.error('RadarSP:',error);
+    const box = el('loading'); box.classList.remove('hidden');
+    el('loading-msg').textContent = 'Não foi possível carregar o mapa ou os arquivos locais. Verifique a conexão e abra por http://localhost:8000. Detalhe: '+String(error.message||error);
+    el('map-status').textContent = 'Erro ao carregar';
+  }
+  map.on('error',ev=>{
+    console.warn('MapLibre:',ev.error||ev);
+    if (!state.ready && ev.error) {
+      el('map-status').textContent='Verifique a conexão do mapa';
+    }
+  });
+
+  function buildPopup(feature){
+    const p=feature.properties;
+    const wrap=document.createElement('div');wrap.className='popup';
+    const title=document.createElement('div');title.className='popup-title';title.textContent=p.local||'Local não informado';wrap.append(title);
+    const id=document.createElement('div');id.className='popup-id';id.textContent='Código local: '+(p.codigo||'—');wrap.append(id);
+    const rows=[['Velocidade cadastrada',p.velocidade||'—'],['Faixa Azul',p.faixa_azul?'Sim':'Não'],['Tipo',p.tipo||'—'],['Ativação',p.ativacao||'—']];
+    for(const [label,value] of rows){const row=document.createElement('div');row.className='popup-row';const a=document.createElement('span');a.textContent=label;const b=document.createElement('strong');b.textContent=value;row.append(a,b);wrap.append(row);}
+    const note=document.createElement('div');note.className='popup-note';note.textContent='O cadastro não confirma a operação física em tempo real. Respeite sempre a sinalização da via.';wrap.append(note);
+    return wrap;
+  }
+  function popupFor(feature){
+    map.flyTo({center:feature.geometry.coordinates,zoom:Math.max(map.getZoom(),14),essential:true});
+    new maplibregl.Popup({offset:16,maxWidth:'345px'}).setLngLat(feature.geometry.coordinates).setDOMContent(buildPopup(feature)).addTo(map);
+  }
+  function setupLayers(){
+    if(map.getSource('radares'))return;
+    map.addSource('radares',{type:'geojson',data:emptyCollection(),cluster:true,clusterRadius:54,clusterMaxZoom:13});
+    map.addLayer({id:'agrupados',type:'circle',source:'radares',filter:['has','point_count'],paint:{'circle-color':'#177b81','circle-radius':['step',['get','point_count'],19,15,24,50,30], 'circle-stroke-width':3,'circle-stroke-color':'#fff','circle-opacity':.91}});
+    map.addLayer({id:'numeros',type:'symbol',source:'radares',filter:['has','point_count'],layout:{'text-field':['get','point_count_abbreviated'],'text-font':['Noto Sans Regular','Open Sans Regular'], 'text-size':12},paint:{'text-color':'#fff'}});
+    map.addLayer({id:'pontos',type:'circle',source:'radares',filter:['!',['has','point_count']],paint:{'circle-radius':['interpolate',['linear'],['zoom'],9,5.5,16,9], 'circle-color':['case',['==',['get','faixa_azul'],true],'#e29b28','#147d83'],'circle-stroke-width':2.5,'circle-stroke-color':'#fff','circle-opacity':.95}});
+    map.on('click','agrupados',async ev=>{
+      const features=map.queryRenderedFeatures(ev.point,{layers:['agrupados']});if(!features.length)return;
+      const clusterId=features[0].properties.cluster_id;
+      try{const zoom=await map.getSource('radares').getClusterExpansionZoom(clusterId);map.easeTo({center:features[0].geometry.coordinates,zoom:Math.min(zoom,17)});}catch(e){console.warn(e);}
+    });
+    map.on('click','pontos',ev=>{if(ev.features?.length)popupFor(ev.features[0]);});
+    for(const layer of ['agrupados','pontos']){
+      map.on('mouseenter',layer,()=>map.getCanvas().style.cursor='pointer');
+      map.on('mouseleave',layer,()=>map.getCanvas().style.cursor='');
+    }
+    state.ready=true;renderMap();
+  }
+  map.on('load',()=>{state.loaded=true;setupLayers();setupLocationLayers();});
+  function normalized(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+  function populateSpeeds(features){
+    const sel=el('speed'), speeds=[...new Set(features.map(f=>f.properties.velocidade).filter(Boolean))].sort((a,b)=>parseInt(a)-parseInt(b)||a.localeCompare(b,'pt-BR'));
+    for(const speed of speeds){const opt=document.createElement('option');opt.value=speed;opt.textContent=speed.includes('/')?speed+' (limites combinados)':speed;sel.append(opt);}
+  }
+  function updateResults(){
+    const list=el('results');list.replaceChildren();
+    el('result-counter').textContent=state.filtered.length+' registro(s)';
+    for(const f of state.filtered.slice(0,14)){
+      const p=f.properties;const b=document.createElement('button');b.type='button';b.className='result';
+      const t=document.createElement('strong');t.textContent=p.local||'Local não informado';
+      const meta=document.createElement('div');meta.className='meta';
+      const code=document.createElement('span');code.textContent='#'+p.codigo;
+      const pill=document.createElement('span');pill.className='pill'+(p.faixa_azul?' amber':'');pill.textContent=p.faixa_azul?'Faixa Azul · '+p.velocidade:p.velocidade;
+      meta.append(code,pill);b.append(t,meta);b.addEventListener('click',()=>popupFor(f));list.append(b);
+    }
+    if(!state.filtered.length){const p=document.createElement('div');p.className='empty';p.textContent='Nenhum resultado para esses filtros.';list.append(p);}
+    else if(state.filtered.length>14){const p=document.createElement('div');p.className='empty';p.textContent='Exibindo os 14 primeiros. Use os filtros ou clique nos pontos do mapa.';list.append(p);}
+  }
+  function renderMap(){
+    if(!state.ready)return;
+    map.getSource('radares').setData({type:'FeatureCollection',features:state.filtered});
+    el('map-status').textContent = state.filtered.length+' locais exibidos';
+    el('loading').classList.add('hidden');
+  }
+  function filter(){
+    const query=normalized(el('query').value.trim());const speed=el('speed').value;const faixa=el('only-azul').checked;
+    state.filtered=state.all.filter(f=>{
+      const p=f.properties;
+      return (!query||normalized(p.local+' '+p.codigo).includes(query))&&(speed==='all'||p.velocidade===speed)&&(!faixa||p.faixa_azul);
+    });
+    el('filter-summary').textContent=state.filtered.length+' de '+state.all.length+' registros';
+    updateResults();renderMap();
+  }
+  el('query').addEventListener('input',filter);el('speed').addEventListener('change',filter);el('only-azul').addEventListener('change',filter);
+  el('reset').addEventListener('click',()=>{el('query').value='';el('speed').value='all';el('only-azul').checked=false;filter();map.flyTo({center:[-46.6333,-23.5505],zoom:10.7,essential:true});});
+
+  async function initialize(){
+    try{
+      const [resGeo,resMeta]=await Promise.all([fetch('data/radares_ativos.geojson'),fetch('data/resumo.json')]);
+      if(!resGeo.ok)throw new Error('GeoJSON indisponível (HTTP '+resGeo.status+')');
+      const geo=await resGeo.json();if(geo.type!=='FeatureCollection'||!Array.isArray(geo.features))throw new Error('GeoJSON inválido');
+      state.all=geo.features;el('count-total').textContent=state.all.length.toLocaleString('pt-BR');
+      el('count-azul').textContent=state.all.filter(f=>f.properties.faixa_azul).length.toLocaleString('pt-BR');
+      if(resMeta.ok){const meta=await resMeta.json();const date=meta.processado_em_utc?new Date(meta.processado_em_utc):null;
+        const label=date&&Number.isFinite(date.getTime())?date.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}):'data indisponível';
+        el('updated').textContent='Base processada em '+label+' · Fonte: '+(meta.origem_entrada==='arquivo_local'?'arquivo anexado':'CSV público');
+      } else {el('updated').textContent='Data da sincronização indisponível.';}
+      populateSpeeds(state.all);filter();
+    }catch(error){showError(error);}
+  }
+
+  // v0.3: posição gerenciada exclusivamente no navegador, mediante autorização.
+  const locationState={mode:'idle',watchId:null,following:false,last:null,marker:null,
+    demoFrame:null,demoAt:null,demoElapsed:0,demoPaused:false,lastRender:0};
+  const noAccuracy={type:'FeatureCollection',features:[]};
+  const locButtons=['gps-start','demo-start','gps-follow','demo-pause','demo-reset','gps-stop'];
+  function modeUI(message='',tone=''){
+    const mode=locationState.mode,active=mode!=='idle',demo=mode==='demo';
+    el('gps-tag').dataset.mode=mode;
+    el('gps-tag').textContent=mode==='gps'?'GPS ATIVO':demo?'SIMULAÇÃO':'DESLIGADO';
+    el('gps-start').hidden=active;el('demo-start').hidden=active;
+    el('gps-follow').hidden=!active;el('gps-stop').hidden=!active;
+    el('demo-pause').hidden=!demo;el('demo-reset').hidden=!demo;
+    el('gps-metrics').hidden=!active;
+    el('demo-pause').textContent=locationState.demoPaused?'▷ Continuar':'Ⅱ Pausar';
+    el('gps-follow').textContent=locationState.following?'◉ Seguindo':'◎ Centralizar';
+    el('gps-follow').disabled=!locationState.last;
+    const messageEl=el('gps-message');
+    if(message){messageEl.textContent=message;messageEl.className='gps-message '+tone;}
+  }
+  // Mantém raio/posição mesmo quando um estilo novo termina de carregar.
+  function setupLocationLayers(){
+    if(!map.getSource('gps-accuracy')){
+      map.addSource('gps-accuracy',{type:'geojson',data:noAccuracy});
+      map.addLayer({id:'gps-area',type:'fill',source:'gps-accuracy',paint:{'fill-color':'#247cde','fill-opacity':0.12}});
+      map.addLayer({id:'gps-outline',type:'line',source:'gps-accuracy',paint:{'line-color':'#267add','line-width':1.5,'line-opacity':0.6}});
+    }
+    if(!map.getSource('demo-line')){
+      map.addSource('demo-line',{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:DEMO_ROUTE}}});
+      map.addLayer({id:'demo-path',type:'line',source:'demo-line',layout:{'visibility':'none'},paint:{'line-color':'#dd921d','line-width':4,'line-opacity':.8,'line-dasharray':[2,1]}});
+    }
+    if(locationState.last)drawLocation(locationState.last,true);
+  }
+  function ensureMarker(){
+    if(locationState.marker)return;
+    const dot=document.createElement('div');dot.className='gps-needle';dot.setAttribute('role','img');dot.setAttribute('aria-label','Sua localização aproximada');
+    locationState.marker=new maplibregl.Marker({element:dot,anchor:'center',rotationAlignment:'map'}).setLngLat([-46.6333,-23.5505]).addTo(map);
+  }
+  function drawLocation(location,force=false){
+    if(!state.loaded)return;
+    ensureMarker();locationState.marker.setLngLat(location.coords);
+    const node=locationState.marker.getElement();node.classList.toggle('demo',locationState.mode==='demo');
+    node.classList.toggle('has-heading',Number.isFinite(location.heading));
+    locationState.marker.setRotation(Number.isFinite(location.heading)?location.heading:0);
+    const source=map.getSource('gps-accuracy');
+    if(source){source.setData(locationState.mode==='gps'&&location.accuracy>0?accuracyGeometry(location.coords,location.accuracy):noAccuracy);}
+    if(locationState.following){
+      const dt=performance.now()-locationState.lastRender;
+      if(force||dt>270){
+        locationState.lastRender=performance.now();
+        const targetZoom=Math.max(map.getZoom(),15.2);
+        if(force)map.easeTo({center:location.coords,zoom:targetZoom,duration:650,essential:true});
+        else map.jumpTo({center:location.coords});
+      }
+    }
+  }
+  function refreshMetrics(location){
+    el('gps-accuracy').textContent=locationState.mode==='demo'?'Simulada':Number.isFinite(location.accuracy)?Math.round(location.accuracy)+' m':'—';
+    el('gps-heading').textContent=Number.isFinite(location.heading)?`${cardinal(location.heading)} · ${Math.round(location.heading)}°`:'—';
+    el('gps-time').textContent=new Date(location.time).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  function onLocation(location,force=false){
+    locationState.last=location;
+    drawLocation(location,force);
+    refreshMetrics(location);
+    el('gps-follow').disabled=false;
+  }
+  function clearWatcher(){
+    if(locationState.watchId!==null){navigator.geolocation.clearWatch(locationState.watchId);locationState.watchId=null;}
+  }
+  function cancelDemo(){
+    if(locationState.demoFrame!==null)cancelAnimationFrame(locationState.demoFrame);
+    locationState.demoFrame=null;locationState.demoAt=null;
+  }
+  function stopLocation(message='Localização desligada. Você pode reativá-la quando quiser.',tone=''){
+    clearWatcher();cancelDemo();
+    locationState.mode='idle';locationState.following=false;locationState.last=null;
+    locationState.demoPaused=false;locationState.demoElapsed=0;
+    if(locationState.marker){locationState.marker.remove();locationState.marker=null;}
+    if(map.getSource('gps-accuracy'))map.getSource('gps-accuracy').setData(noAccuracy);
+    if(map.getLayer('demo-path'))map.setLayoutProperty('demo-path','visibility','none');
+    el('gps-accuracy').textContent='—';el('gps-heading').textContent='—';el('gps-time').textContent='—';
+    modeUI(message,tone);
+  }
+  function startGPS(){
+    if(!window.isSecureContext){stopLocation('O GPS do navegador só funciona com HTTPS ou localhost. Publique no GitHub Pages para testar no celular.','error');return;}
+    if(!navigator.geolocation){stopLocation('Este navegador não disponibiliza geolocalização.','error');return;}
+    stopLocation();locationState.mode='gps';locationState.following=true;
+    modeUI('Solicitando permissão de localização...');
+    const onSuccess=pos=>{
+      if(locationState.mode!=='gps')return;
+      const c=pos.coords;
+      if(!Number.isFinite(c.longitude)||!Number.isFinite(c.latitude))return;
+      const coords=[c.longitude,c.latitude];
+      const previous=locationState.last;
+      let heading=Number.isFinite(c.heading)?((c.heading%360)+360)%360:null;
+      // Inferir direção somente com deslocamento suficiente para reduzir ruído do GPS.
+      if(heading===null&&previous&&distanceMeters(previous.coords,coords)>Math.max(12,(c.accuracy||0)*1.2)){
+        heading=bearingDegrees(previous.coords,coords);
+      }
+      const location={coords,accuracy:Number.isFinite(c.accuracy)?c.accuracy:null,heading,time:pos.timestamp||Date.now()};
+      onLocation(location,!previous);
+      modeUI('Posição recebida. O círculo azul representa a incerteza aproximada do GPS.','success');
+    };
+    const onError=error=>{
+      if(locationState.mode!=='gps')return;
+      if(error.code===1){stopLocation(geolocationMessage(error),'error');return;}
+      modeUI(geolocationMessage(error),'error');
+    };
+    try{locationState.watchId=navigator.geolocation.watchPosition(onSuccess,onError,{enableHighAccuracy:true,maximumAge:1000,timeout:18000});}
+    catch(err){stopLocation('Não foi possível iniciar o GPS: '+err.message,'error');}
+  }
+  const DEMO_DURATION=60000;
+  function demoTick(now){
+    if(locationState.mode!=='demo'||locationState.demoPaused)return;
+    const dt=locationState.demoAt===null?0:Math.max(0,now-locationState.demoAt);
+    locationState.demoAt=now;
+    locationState.demoElapsed=Math.min(DEMO_DURATION,locationState.demoElapsed+dt);
+    const sample=sampleRoute(DEMO_ROUTE,locationState.demoElapsed/DEMO_DURATION);
+    onLocation({coords:sample.coords,accuracy:null,heading:sample.heading,time:Date.now()},locationState.demoElapsed===0);
+    if(locationState.demoElapsed>=DEMO_DURATION){
+      locationState.demoPaused=true;modeUI('Trajeto fictício concluído. Reinicie para testar novamente.','success');return;
+    }
+    locationState.demoFrame=requestAnimationFrame(demoTick);
+  }
+  function startDemo(){
+    stopLocation();locationState.mode='demo';locationState.following=true;locationState.demoElapsed=0;
+    locationState.demoAt=null;locationState.demoPaused=false;
+    if(map.getLayer('demo-path'))map.setLayoutProperty('demo-path','visibility','visible');
+    modeUI('Simulando um trajeto fictício na região da Avenida Paulista. Não é sua localização real.');
+    locationState.demoFrame=requestAnimationFrame(demoTick);
+  }
+  function toggleDemo(){
+    if(locationState.mode!=='demo')return;
+    locationState.demoPaused=!locationState.demoPaused;
+    if(locationState.demoPaused){cancelDemo();modeUI('Simulação pausada.');}
+    else {locationState.demoAt=null;modeUI('Simulação em andamento.');locationState.demoFrame=requestAnimationFrame(demoTick);}
+  }
+  el('gps-start').addEventListener('click',startGPS);
+  el('demo-start').addEventListener('click',startDemo);
+  el('gps-stop').addEventListener('click',()=>stopLocation());
+  el('gps-follow').addEventListener('click',()=>{
+    if(locationState.last){locationState.following=true;drawLocation(locationState.last,true);modeUI('Acompanhando sua posição no mapa.','success');}
+  });
+  el('demo-pause').addEventListener('click',toggleDemo);
+  el('demo-reset').addEventListener('click',startDemo);
+  map.on('dragstart',()=>{
+    if(locationState.mode!=='idle'){
+      locationState.following=false;
+      modeUI('Mapa livre. Toque em Centralizar para voltar a seguir a posição.');
+    }
+  });
+  map.on('zoomstart',event=>{
+    if(locationState.mode!=='idle' && event.originalEvent){locationState.following=false;modeUI('Mapa livre. Toque em Centralizar para voltar a seguir a posição.');}
+  });
+  document.addEventListener('visibilitychange',()=>{
+    // Ao ocultar a aba, pausa somente a simulação; GPS depende do navegador/sistema.
+    if(document.hidden&&locationState.mode==='demo'&&!locationState.demoPaused){toggleDemo();}
+  });
+  window.addEventListener('beforeunload',()=>{clearWatcher();cancelDemo();});
+  modeUI();
+
+  initialize();
+</script>
+</body>
+</html>
