@@ -1,50 +1,90 @@
-name: V5 - Resumo seguro de fiscalizacao SP
+name: Ultron V5 - Atualizar mapa e fontes
+
 on:
   workflow_dispatch:
   schedule:
+    # 09:17 UTC = 06:17 em São Paulo (UTC-3)
     - cron: '17 9 * * *'
+
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: sincronizacao-ultron-v5
+  cancel-in-progress: false
+
 jobs:
-  publicar:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  sincronizar:
     permissions:
       contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Baixar nosso repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Executar testes do sincronizador
+        run: python -m unittest -v test_frontend_v5 test_importar_bunda test_consolidar_fontes test_geojson test_sincronizador
+
+      - name: Verificar e sincronizar CSV da CET-SP
+        run: python sincronizar_radares.py
+
+      - name: Importar registros de SP do Bunda de Urso (sem GPS de visitantes)
+        shell: bash
+        run: |
+          if python importar_bunda.py --online; then
+            echo "API Bunda de Urso sincronizada com sucesso."
+          else
+            echo "::warning::API do Urso indisponível; snapshot anterior preservado."
+          fi
+
+      - name: Consolidar as fontes geográficas
+        run: python consolidar_fontes.py
+
+      - name: Publicar somente quando os dados mudarem
+        shell: bash
+        run: |
+          if [[ -n "$(git status --porcelain data/)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/
+            git commit -m "dados: sincronizar CET-SP e Urso"
+            git push
+          else
+            echo "Sem mudanças na base; nenhum commit."
+          fi
+
+      - name: Preparar arquivos para o site
+        shell: bash
+        run: |
+          mkdir -p publicar/data
+          cp index.html tabela.html publicar/
+          cp data/radares_ativos.csv data/radares_ativos.geojson data/radares_consolidados.geojson data/consolidado_status.json data/resumo.json publicar/data/
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Empacotar painel para Pages
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: publicar
+
+  publicar:
+    needs: sincronizar
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Testar
-        run: python -m unittest discover -p 'test_v5_*.py' -v
-      - name: Sincronizar resumo estatistico (sem coordenadas publicadas)
-        run: |
-          if ! python atualizar_fontes.py; then
-            echo '::warning::API externa indisponível; mantendo resumo anterior'
-          fi
-      - name: Salvar resumo se mudou
-        run: |
-          if [ -n "$(git status --porcelain data/resumo_fontes_sp.json)" ]; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add data/resumo_fontes_sp.json
-            git commit -m 'dados: atualizar resumo SP V5'
-            git push
-          fi
-      - name: Preparar apenas painel e resumo publico
-        run: |
-          mkdir -p publicar/data
-          cp index.html publicar/index.html
-          cp data/resumo_fontes_sp.json publicar/data/resumo_fontes_sp.json
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: publicar
-      - id: deployment
+      - name: Publicar painel
+        id: deployment
         uses: actions/deploy-pages@v4
