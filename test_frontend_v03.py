@@ -22,7 +22,7 @@ class TestFrontend(unittest.TestCase):
 
     def test_publicacao_inclui_modulo_de_gps(self):
         workflow=(ROOT/'.github/workflows/atualizar.yml').read_text(encoding='utf8')
-        self.assertIn('cp index.html localizacao.js tabela.html publicar/',workflow)
+        self.assertIn('cp index.html localizacao.js trajetoria.js ajuste_via.js tabela.html publicar/', workflow)
         self.assertTrue((ROOT/'localizacao.js').is_file())
 
 if __name__ == '__main__': unittest.main()
