@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#101a2a" />
-  <meta name="description" content="RadarSP: mapa de locais de fiscalização eletrônica da CET-SP com GPS opcional e simulação." />
-  <title>RadarSP v0.3 — Mapa e localização</title>
+  <meta name="description" content="RadarSP: mapa de locais de fiscalização com GPS e análise experimental de trajetória." />
+  <title>RadarSP v0.4v2 Superblaster — Trajetória experimental</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.css" />
   <style>
     :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;font-synthesis:none;color:#172b3f;background:#eff3f7}
@@ -79,6 +79,13 @@
     .gps-needle.demo{background:#f59e0b;box-shadow:0 0 0 2px #f59e0b,0 4px 15px rgba(200,132,18,.25)}.gps-needle.demo::before{border-bottom-color:#f59e0b}
     @media(max-width:800px){.gps-hud{bottom:12px;right:12px;padding:11px 12px;width:min(345px,calc(100% - 24px))}.legend{display:none}.stage{height:65dvh;min-height:420px}.gps-hud-header{margin-bottom:4px}.gps-message{min-height:0;margin-bottom:8px}.gps-btn{min-height:36px;padding:7px;font-size:11px}.gps-metrics{margin-top:7px}.gps-note{margin-top:6px}}
     @media(max-width:390px){.gps-hud{width:calc(100% - 20px);right:10px;bottom:10px}.map-title{max-width:205px}.map-status{display:none}}
+
+    /* v0.4v2 — resumo de trajetória; calculado localmente, não substitui sinalização. */
+    .nav-hud{position:absolute;z-index:6;bottom:315px;right:22px;width:min(355px,calc(100% - 24px));background:rgba(255,255,255,.97);border:1px solid #dbe7eb;box-shadow:0 11px 30px rgba(16,32,49,.15);border-radius:15px;padding:13px 14px;backdrop-filter:blur(10px)}
+    .nav-hud-top{display:flex;justify-content:space-between;align-items:center;gap:7px}.nav-hud-top b{font-size:12px;color:#23384c}.nav-badge{font-size:9px;font-weight:900;letter-spacing:.5px;border-radius:7px;background:#e8eef2;color:#586b7b;padding:5px 7px;white-space:nowrap}.nav-badge[data-state=estimate]{background:#dcf6e9;color:#18764e}.nav-badge[data-state=uncertain]{background:#fff1d6;color:#8b6007}.nav-main{font-size:12px;line-height:1.5;font-weight:750;color:#253a50;margin-top:10px;max-height:60px;overflow:auto}.nav-facts{display:flex;justify-content:space-between;gap:8px;margin-top:9px;font-size:10px;font-weight:800;color:#2e7682}.nav-detail{font-size:10px;color:#6b7c8b;line-height:1.4;margin-top:7px}
+    .osrm-opt{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:800;color:#355469;margin-top:8px;cursor:pointer}.osrm-opt input{accent-color:#197e85}.osrm-opt input:disabled{opacity:.4}.osrm-note{font-size:9px;line-height:1.35;color:#8295a4;margin-top:4px}
+    @media(max-width:800px){.stage{min-height:620px;height:74dvh}.nav-hud{bottom:282px;right:12px;width:min(345px,calc(100% - 24px));padding:10px 12px}.nav-main{font-size:11px;max-height:50px}.nav-detail{font-size:9px}.gps-hud{max-height:260px;overflow:auto}.gps-note{font-size:9px}}
+    @media(max-width:390px){.stage{min-height:650px}.nav-hud{width:calc(100% - 20px);right:10px;bottom:294px}}
   </style>
 </head>
 <body>
@@ -86,7 +93,7 @@
   <aside class="sidebar" aria-label="Busca e filtros de radares">
     <div class="head">
       <div class="brand"><div class="logo" aria-hidden="true">⌖</div><div><strong>RADAR<em>SP</em></strong><small>MAPA PÚBLICO · SÃO PAULO</small></div></div>
-      <p class="strap">Explore os registros públicos da CET-SP e, se autorizar, acompanhe sua localização no mapa.</p>
+      <p class="strap">Explore dados públicos de fiscalização e acompanhe uma estimativa de trajetória, sem presumir qual pista você está usando.</p>
       <div class="summary">
         <div class="metric"><b id="count-total">—</b><span>Sem desativação</span></div>
         <div class="metric"><b id="count-azul">—</b><span>Faixa Azul</span></div>
@@ -100,11 +107,18 @@
       <div class="filterfoot"><small id="filter-summary">Aguardando dados...</small><button id="reset" type="button">Limpar filtros</button></div>
     </div>
     <section class="results-panel" aria-label="Lista de locais filtrados"><div class="results-head"><strong>Locais encontrados</strong><small id="result-counter">—</small></div><div class="results-scroll" id="results"><div class="empty">Carregando registros...</div></div></section>
-    <footer class="bottom"><div class="source">Dados: <a href="https://github.com/cetsp-dados/dados-fiscalizacao-eletronica" target="_blank" rel="noopener noreferrer">CET-SP (repositório público)</a> · <a href="tabela.html">Abrir tabela completa</a></div><div id="updated" class="updated">Aguardando metadados...</div><div class="updated">Localização opcional, processada neste navegador; sem envio ao banco do RadarSP. Não use controles enquanto dirige.</div></footer>
+    <footer class="bottom"><div class="source">Fontes e créditos: <a href="https://github.com/cetsp-dados/dados-fiscalizacao-eletronica" target="_blank" rel="noopener noreferrer">CET-SP</a> · <a href="https://github.com/Challado/Bunda-de-Urso" target="_blank" rel="noopener noreferrer">Bunda de Urso / Challado (integração preparada)</a> · <a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">MapLibre</a> · <a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> · <a href="https://project-osrm.org/" target="_blank" rel="noopener noreferrer">OSRM (opcional)</a> · <a href="tabela.html">Tabela</a></div><div id="updated" class="updated">Aguardando metadados...</div><div class="updated">Localização opcional, processada neste navegador; sem envio ao banco do RadarSP. Não use controles enquanto dirige.</div></footer>
   </aside>
   <main class="stage" aria-label="Mapa interativo dos locais cadastrados">
     <div id="map" role="application" aria-label="Mapa interativo de São Paulo com locais de fiscalização"></div>
-    <div class="floating-header"><div class="map-title"><strong>Fiscalização eletrônica · São Paulo</strong><small>Dados públicos da CET-SP · localização aproximada do registro</small></div><div class="map-status"><i class="dot"></i><span id="map-status">Carregando...</span></div></div>
+    <div class="floating-header"><div class="map-title"><strong>Fiscalização eletrônica · São Paulo</strong><small>CET-SP · localização aproximada · trajetória experimental</small></div><div class="map-status"><i class="dot"></i><span id="map-status">Carregando...</span></div></div>
+
+    <section class="nav-hud" aria-label="Análise experimental de trajetória" aria-live="polite">
+      <div class="nav-hud-top"><b>◈ Trajetória estimada</b><span class="nav-badge" id="nav-badge">INATIVA</span></div>
+      <div id="nav-main" class="nav-main">Ative o GPS ou inicie a simulação para analisar os pontos na direção aproximada do deslocamento.</div>
+      <div class="nav-facts"><span id="nav-summary">Aguardando posição</span><span id="nav-quality">Via não confirmada</span></div>
+      <div id="nav-detail" class="nav-detail">A proximidade não confirma que um equipamento esteja na mesma pista ou em operação.</div>
+    </section>
 
     <section class="gps-hud" aria-label="Localização e simulação">
       <div class="gps-hud-header"><b>⌖ Sua localização</b><span class="gps-tag" data-mode="idle" id="gps-tag">DESLIGADO</span></div>
@@ -122,7 +136,9 @@
         <div class="gps-metric"><small>Direção</small><strong id="gps-heading">—</strong></div>
         <div class="gps-metric"><small>Atualização</small><strong id="gps-time">—</strong></div>
       </div>
-      <div class="gps-note">GPS exige sua permissão e <strong>HTTPS</strong> (ou localhost). Ainda não há alertas de aproximação de radares.</div>
+      <label class="osrm-opt"><input type="checkbox" id="use-road-match"> <span>Ajuste experimental à rua por OSRM (opcional)</span></label>
+      <div class="osrm-note" id="osrm-note">Desligado: localização analisada apenas no aparelho. Ao ativar, coordenadas recentes serão enviadas ao servidor público de demonstração OSRM; ele pode não responder.</div>
+      <div class="gps-note">Análise aproximada, não identifica com certeza a pista. Sinalização e limites da via prevalecem. Não interaja com a tela enquanto dirige.</div>
     </section>
     <div class="legend"><strong>Legenda do mapa</strong><div><i class="circle"></i>Equipamento cadastrado</div><div><i class="circle amber"></i>Marcado como Faixa Azul</div></div>
     <div class="loading-overlay" id="loading"><div class="loading-box"><strong>Carregando mapa e registros</strong><p id="loading-msg">Estamos preparando a visualização dos dados da CET-SP.</p></div></div>
@@ -131,10 +147,13 @@
 <script type="module">
   import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.mjs';
   import {accuracyGeometry,bearingDegrees,cardinal,distanceMeters,DEMO_ROUTE,sampleRoute,geolocationMessage} from './localizacao.js';
+  import {headingFromTrail,positionConfidence,nearbySummary,forwardLine,EMPTY_GEOJSON} from './trajetoria.js';
+  import {requestMatch} from './ajuste_via.js';
 
   const el = id => document.getElementById(id);
   const emptyCollection = () => ({type:'FeatureCollection',features:[]});
   const state = {all:[],filtered:[],ready:false,loaded:false};
+  const trackState={points:[],lastUi:0,lastOsrmAttempt:0,matchAbort:null,roadMatch:null};
   const styleUrl = 'https://tiles.openfreemap.org/styles/positron';
   const map = new maplibregl.Map({
     container:'map', style:styleUrl, center:[-46.6333,-23.5505],zoom:10.7,
@@ -161,7 +180,7 @@
     const wrap=document.createElement('div');wrap.className='popup';
     const title=document.createElement('div');title.className='popup-title';title.textContent=p.local||'Local não informado';wrap.append(title);
     const id=document.createElement('div');id.className='popup-id';id.textContent='Código local: '+(p.codigo||'—');wrap.append(id);
-    const rows=[['Velocidade cadastrada',p.velocidade||'—'],['Faixa Azul',p.faixa_azul?'Sim':'Não'],['Tipo',p.tipo||'—'],['Ativação',p.ativacao||'—']];
+    const rows=[['Velocidade cadastrada',p.velocidade||'—'],['Faixa Azul',p.faixa_azul?'Sim':'Não'],['Tipo',p.tipo||'—'],['Ativação',p.ativacao||'—'],['Fonte',p.fonte||'CET-SP']];
     for(const [label,value] of rows){const row=document.createElement('div');row.className='popup-row';const a=document.createElement('span');a.textContent=label;const b=document.createElement('strong');b.textContent=value;row.append(a,b);wrap.append(row);}
     const note=document.createElement('div');note.className='popup-note';note.textContent='O cadastro não confirma a operação física em tempo real. Respeite sempre a sinalização da via.';wrap.append(note);
     return wrap;
@@ -188,7 +207,7 @@
     }
     state.ready=true;renderMap();
   }
-  map.on('load',()=>{state.loaded=true;setupLayers();setupLocationLayers();});
+  map.on('load',()=>{state.loaded=true;setupLayers();setupLocationLayers();setupTrajectoryLayers();});
   function normalized(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
   function populateSpeeds(features){
     const sel=el('speed'), speeds=[...new Set(features.map(f=>f.properties.velocidade).filter(Boolean))].sort((a,b)=>parseInt(a)-parseInt(b)||a.localeCompare(b,'pt-BR'));
@@ -237,17 +256,88 @@
         const label=date&&Number.isFinite(date.getTime())?date.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}):'data indisponível';
         el('updated').textContent='Base processada em '+label+' · Fonte: '+(meta.origem_entrada==='arquivo_local'?'arquivo anexado':'CSV público');
       } else {el('updated').textContent='Data da sincronização indisponível.';}
+      // Adições opt-in futuras não são misturadas à CET nesta versão sem validação.
       populateSpeeds(state.all);filter();
     }catch(error){showError(error);}
   }
 
-  // v0.3: posição gerenciada exclusivamente no navegador, mediante autorização.
+  // v0.4: posição gerenciada no navegador; correspondência viária só com consentimento adicional.
   const locationState={mode:'idle',watchId:null,following:false,last:null,marker:null,
     demoFrame:null,demoAt:null,demoElapsed:0,demoPaused:false,lastRender:0};
   const noAccuracy={type:'FeatureCollection',features:[]};
+  function setupTrajectoryLayers(){
+    if(map.getSource('travel-trace'))return;
+    map.addSource('travel-trace',{type:'geojson',data:EMPTY_GEOJSON});
+    map.addSource('travel-forward',{type:'geojson',data:EMPTY_GEOJSON});
+    map.addSource('road-match',{type:'geojson',data:EMPTY_GEOJSON});
+    map.addLayer({id:'trace-path',type:'line',source:'travel-trace',paint:{'line-color':'#2478cf','line-width':4,'line-opacity':.7}});
+    map.addLayer({id:'forward-path',type:'line',source:'travel-forward',paint:{'line-color':'#227be7','line-width':3,'line-dasharray':[1.5,2],'line-opacity':.65}});
+    map.addLayer({id:'match-path',type:'line',source:'road-match',paint:{'line-color':'#7f62c7','line-width':5,'line-opacity':.7}});
+  }
+  function resetTrajectory(){
+    trackState.points.length=0;trackState.roadMatch=null;trackState.lastUi=0;
+    if(trackState.matchAbort){trackState.matchAbort.abort();trackState.matchAbort=null;}
+    for(const name of ['travel-trace','travel-forward','road-match'])if(map.getSource(name))map.getSource(name).setData(EMPTY_GEOJSON);
+    el('nav-badge').textContent='INATIVA';el('nav-badge').dataset.state='idle';
+    el('nav-main').textContent='Ative o GPS ou inicie uma simulação para avaliar a direção do deslocamento.';
+    el('nav-summary').textContent='Aguardando posição';el('nav-quality').textContent='Via não confirmada';
+    el('nav-detail').textContent='Os registros podem estar em outra pista ou via próxima.';
+  }
+  function addTrackPoint(location){
+    const t=trackState.points;
+    if(t.length){const prev=t.at(-1);const dist=distanceMeters(prev.coords,location.coords);
+      if(location.time-prev.time<800||dist<Math.max(5,(location.accuracy||0)*.25))return;
+      if(dist>450){t.length=0;trackState.roadMatch=null;}
+    }
+    t.push(location);
+    while(t.length>100||t.length>2&&(location.time-t[0].time>180000))t.shift();
+  }
+  function updateTrajectory(raw){
+    if(!validLatLng(raw.coords))return;
+    addTrackPoint(raw);
+    const estimated=headingFromTrail(trackState.points);
+    const loc={...raw,heading:Number.isFinite(raw.heading)?raw.heading:estimated};
+    const confidence=positionConfidence(loc);
+    const nearby=nearbySummary(loc,state.all,350);
+    if(!confidence.ok){
+      el('nav-badge').textContent='INCERTO';el('nav-badge').dataset.state='uncertain';
+      el('nav-main').textContent=confidence.reason+'. Sua trajetória ainda não pode ser estimada com confiança.';
+    }else{
+      el('nav-badge').textContent=locationState.mode==='demo'?'SIMULAÇÃO':'ESTIMATIVA';el('nav-badge').dataset.state='estimate';
+      el('nav-main').textContent='A direção aproximada do deslocamento está marcada pela linha azul tracejada. A trilha percorrida aparece em azul contínuo.';
+    }
+    el('nav-summary').textContent=nearby.count+' registros a até 350 m';
+    el('nav-quality').textContent=trackState.roadMatch?'Via aproximada · OSRM':'Via não confirmada';
+    el('nav-detail').textContent='Pontos próximos podem estar em outras vias. Confira o mapa e respeite sempre os limites e a sinalização.';
+    if(state.loaded&&map.getSource('travel-trace')){
+      const points=trackState.points.map(p=>p.coords);
+      map.getSource('travel-trace').setData(points.length>=2?{type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:points}}]}:EMPTY_GEOJSON);
+      map.getSource('travel-forward').setData(confidence.ok?forwardLine(loc):EMPTY_GEOJSON);
+    }
+    maybeMatchRoad(loc);
+  }
+  function validLatLng(p){return Array.isArray(p)&&p.length===2&&p.every(Number.isFinite);}
+  async function maybeMatchRoad(loc){
+    if(locationState.mode!=='gps'||!el('use-road-match').checked||trackState.matchAbort||trackState.points.length<4)return;
+    if(!positionConfidence(loc).ok||Date.now()-trackState.lastOsrmAttempt<25000)return;
+    trackState.lastOsrmAttempt=Date.now();
+    const controller=new AbortController();trackState.matchAbort=controller;
+    try{
+      const match=await requestMatch(trackState.points,{signal:controller.signal});
+      if(locationState.mode!=='gps'||!el('use-road-match').checked||controller.signal.aborted)return;
+      if(match){
+        trackState.roadMatch=match;
+        if(map.getSource('road-match'))map.getSource('road-match').setData({type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:match.line}}]});
+        el('osrm-note').textContent='Linha roxa = rua aproximada pelo OSRM. A pista do equipamento permanece não verificada.';
+        el('nav-quality').textContent='Via aproximada · OSRM';
+      }else{el('osrm-note').textContent='OSRM não conseguiu associar esse trajeto a uma rua. A estimativa local continua.';}
+    }catch(err){if(!controller.signal.aborted)el('osrm-note').textContent='Serviço OSRM indisponível no momento. A estimativa local continua.';}
+    finally{if(trackState.matchAbort===controller)trackState.matchAbort=null;}
+  }
   const locButtons=['gps-start','demo-start','gps-follow','demo-pause','demo-reset','gps-stop'];
   function modeUI(message='',tone=''){
     const mode=locationState.mode,active=mode!=='idle',demo=mode==='demo';
+    el('use-road-match').disabled=!active||demo;
     el('gps-tag').dataset.mode=mode;
     el('gps-tag').textContent=mode==='gps'?'GPS ATIVO':demo?'SIMULAÇÃO':'DESLIGADO';
     el('gps-start').hidden=active;el('demo-start').hidden=active;
@@ -306,6 +396,7 @@
     drawLocation(location,force);
     refreshMetrics(location);
     el('gps-follow').disabled=false;
+    updateTrajectory({...location,mode:locationState.mode});
   }
   function clearWatcher(){
     if(locationState.watchId!==null){navigator.geolocation.clearWatch(locationState.watchId);locationState.watchId=null;}
@@ -316,12 +407,14 @@
   }
   function stopLocation(message='Localização desligada. Você pode reativá-la quando quiser.',tone=''){
     clearWatcher();cancelDemo();
+    el('use-road-match').checked=false;el('osrm-note').textContent='Desligado: nenhum envio de coordenadas ao serviço OSRM.';
     locationState.mode='idle';locationState.following=false;locationState.last=null;
     locationState.demoPaused=false;locationState.demoElapsed=0;
     if(locationState.marker){locationState.marker.remove();locationState.marker=null;}
     if(map.getSource('gps-accuracy'))map.getSource('gps-accuracy').setData(noAccuracy);
     if(map.getLayer('demo-path'))map.setLayoutProperty('demo-path','visibility','none');
     el('gps-accuracy').textContent='—';el('gps-heading').textContent='—';el('gps-time').textContent='—';
+    resetTrajectory();
     modeUI(message,tone);
   }
   function startGPS(){
@@ -378,6 +471,16 @@
     if(locationState.demoPaused){cancelDemo();modeUI('Simulação pausada.');}
     else {locationState.demoAt=null;modeUI('Simulação em andamento.');locationState.demoFrame=requestAnimationFrame(demoTick);}
   }
+  el('use-road-match').addEventListener('change',()=>{
+    if(!el('use-road-match').checked){
+      if(trackState.matchAbort)trackState.matchAbort.abort();trackState.matchAbort=null;trackState.roadMatch=null;
+      if(map.getSource('road-match'))map.getSource('road-match').setData(EMPTY_GEOJSON);
+      el('osrm-note').textContent='Desligado: nenhum envio de coordenadas ao serviço OSRM.';
+    }else{
+      el('osrm-note').textContent='Opt-in ativo: pontos recentes do seu GPS podem ser enviados ao OSRM. A resposta não confirma sua pista.';
+      trackState.lastOsrmAttempt=0;
+    }
+  });
   el('gps-start').addEventListener('click',startGPS);
   el('demo-start').addEventListener('click',startDemo);
   el('gps-stop').addEventListener('click',()=>stopLocation());
