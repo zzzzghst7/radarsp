@@ -153,6 +153,7 @@ export function iniciarRotas(map, maplibregl) {
   function stopTracking(message='Acompanhamento desligado.'){
     if(gpsWatchId!==null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatchId);
     gpsWatchId=null;lastFix=null;offRouteFixes=0;arrivalFixes=0;
+    window.dispatchEvent(new CustomEvent('ultron:gps-stop',{detail:{source:'route'}}));
     if(etaTimer!==null){clearInterval(etaTimer);etaTimer=null;}
     trackState.textContent=message;
     updateTrackingButtons();
@@ -413,6 +414,7 @@ export function iniciarRotas(map, maplibregl) {
 
   function receiveGps(position){
     if(gpsWatchId===null||!activeRoute||!destination)return;
+    window.dispatchEvent(new CustomEvent('ultron:gps-fix',{detail:{source:'route',position}}));
     const c=position.coords;
     const accuracy=Number(c.accuracy), point=[Number(c.longitude),Number(c.latitude)];
     if(!point.every(Number.isFinite)||!Number.isFinite(accuracy)||accuracy>TRACK_ACCURACY_LIMIT){

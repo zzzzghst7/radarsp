@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1729">
 <meta name="description" content="DETECTOR INFALÍVEL DE RADARES ULTRON MEGA V5 — painel de segurança viária e cobertura pública em São Paulo.">
-<title>DETECTOR INFALÍVEL DE RADARES ULTRON MEGA V12 BITURBO MASTER BLASTER INFALIVEL BY RAFA</title>
+<title>DETECTOR INFALÍVEL DE RADARES ULTRON MEGA V5</title>
 <link href="https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.css" rel="stylesheet">
 <style>
 :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#dfeafa;background:#091526;font-synthesis:none}*{box-sizing:border-box}html,body{margin:0;min-height:100%}
@@ -114,12 +114,21 @@ body.is-navigating .home-header,body.is-navigating .home-dock,body.is-navigating
 }
 @media(max-width:360px){.home-dock{grid-template-columns:minmax(0,1.22fr) minmax(0,1fr) minmax(0,.7fr)}.home-action{font-size:11px;gap:4px}.home-action svg{width:16px;height:16px}}
 
+
+/* Velocímetro discreto: só aparece após autorização do GPS. */
+.speedometer[hidden]{display:none!important}
+.speedometer{position:absolute;z-index:10;bottom:calc(111px + env(safe-area-inset-bottom));left:14px;min-width:86px;max-width:108px;padding:10px 12px 9px;border-radius:17px;border:1px solid #536376;background:rgba(10,17,28,.92);box-shadow:0 9px 28px #0009;color:#f7fbff;text-align:center;pointer-events:none;font-variant-numeric:tabular-nums;backdrop-filter:blur(9px)}
+.speedometer strong{display:block;font-size:clamp(27px,7vw,39px);font-weight:850;line-height:1.04;letter-spacing:-1px}
+.speedometer .speed-unit{display:block;font-size:12px;letter-spacing:.04em;color:#c7d5e2;font-weight:650;margin-top:2px}
+.speedometer .speed-state{display:block;font-size:9px;color:#a2bbcb;margin-top:5px;min-height:11px}
+body.is-navigating .speedometer{bottom:calc(128px + env(safe-area-inset-bottom));z-index:21}
+@media(max-width:390px){.speedometer{left:9px;bottom:calc(95px + env(safe-area-inset-bottom));padding:9px 10px;min-width:78px;border-radius:14px}body.is-navigating .speedometer{bottom:calc(110px + env(safe-area-inset-bottom))}}
 </style>
 </head>
 <body><div class="app">
 <dialog id="about-dialog" class="about-dialog" aria-labelledby="about-title">
 <aside class="sidebar">
-  <header class="brand"><div class="about-title-row"><strong id="about-title">Sobre o Ultron V12 BITURBO</strong><button type="button" id="about-close" aria-label="Fechar Sobre">✕</button></div><div class="eyebrow">São Paulo · V12 · ULTRON</div><h1>DETECTOR INFALÍVEL DE RADARES <em>ULTRON MEGA W16 QUADRITURBO 1200BHP</em></h1><p>Mapa informativo de registros públicos de fiscalização. O nome “infalível” NÃO é brincadeira: dados e coordenadas SÃO perfeitos - visto que, eu quem fiz, rs - </p></header>
+  <header class="brand"><div class="about-title-row"><strong id="about-title">Sobre o Ultron V5</strong><button type="button" id="about-close" aria-label="Fechar Sobre">✕</button></div><div class="eyebrow">São Paulo · V5 · Ultron</div><h1>DETECTOR INFALÍVEL DE RADARES <em>ULTRON MEGA V5</em></h1><p>Mapa informativo de registros públicos de fiscalização. O nome “infalível” é brincadeira: dados e coordenadas podem estar incompletos.</p></header>
   <div class="cards"><div class="card"><b id="cet">—</b><small>Registros do cadastro CET-SP</small></div><div class="card"><b id="bunda">—</b><small>Registros de SP no Bunda de Urso</small></div></div>
   
   <div class="filters" id="radar-filter-panel">
@@ -136,7 +145,7 @@ body.is-navigating .home-header,body.is-navigating .home-dock,body.is-navigating
   <footer class="footer"><strong>Fontes e créditos</strong><div><a href="https://github.com/Challado/Bunda-de-Urso" target="_blank" rel="noopener noreferrer">Bunda de Urso · Challado (dados CC BY 4.0)</a> · <a href="https://github.com/cetsp-dados/dados-fiscalizacao-eletronica" target="_blank" rel="noopener noreferrer">CET-SP</a> · <a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">MapLibre</a> · <a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap</a></div><div class="note">O número de cadastros não representa equipamentos comprovadamente em operação. Sinalização e limites da via prevalecem.</div><div id="source-status" style="margin-top:8px">Verificando base...</div></footer>
 </aside>
 </dialog>
-<main class="maparea"><div id="map" role="application" aria-label="Mapa informativo do estado de São Paulo"></div><div class="home-header" aria-label="Ultron V5"><span>ULTRON <strong>V5</strong></span></div>
+<main class="maparea"><div id="map" role="application" aria-label="Mapa informativo do estado de São Paulo"></div><div id="speedometer" class="speedometer" role="status" aria-label="Velocidade atual estimada pelo GPS" hidden><strong id="speed-value">—</strong><span class="speed-unit">km/h</span><span id="speed-state" class="speed-state">GPS</span></div>
 <div class="home-dock" aria-label="Ações do mapa">
   <button type="button" class="home-action home-primary route-toggle" id="route-toggle" aria-expanded="false" aria-controls="route-panel">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 22l-9-5-9 5Z" fill="currentColor"/></svg><span>Traçar rota</span>
@@ -150,7 +159,7 @@ body.is-navigating .home-header,body.is-navigating .home-dock,body.is-navigating
 </div>
 <div id="home-toast" class="home-toast" role="status" aria-live="polite" hidden></div>
   <section class="route-panel" id="route-panel" aria-label="Planejador de rotas" hidden>
-  <div class="route-header"><b>Planejar rota · V12</b><button type="button" class="route-close" id="route-close" aria-label="Fechar planejador">Fechar</button></div>
+  <div class="route-header"><b>Planejar rota · V5</b><button type="button" class="route-close" id="route-close" aria-label="Fechar planejador">Fechar</button></div>
   <p>Digite os endereços, toque em <strong>Buscar</strong> e escolha o resultado correto. Para a origem, também pode usar o GPS.</p>
   <div class="route-field">
     <label for="route-start-input">Origem</label>
@@ -182,10 +191,68 @@ import {iniciarRotas} from './rotas.js';
 const $=id=>document.getElementById(id);
 let watchId=null,marker=null,map=null;
 try{map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[-46.65,-23.55],zoom:12,minZoom:4.5,maxZoom:18});}catch(err){$('gps-info').textContent='Mapa indisponível: '+err.message;}
-$('locate').addEventListener('click',()=>{if(!window.isSecureContext){$('gps-info').textContent='GPS exige HTTPS ou localhost.';return;}if(!navigator.geolocation){$('gps-info').textContent='GPS não disponível neste navegador.';return;}if(watchId!==null)return;$('status').textContent='Solicitando permissão...';watchId=navigator.geolocation.watchPosition(p=>{const c=[p.coords.longitude,p.coords.latitude];if(!marker&&map)marker=new maplibregl.Marker({color:'#147c88'}).setLngLat(c).addTo(map);if(marker)marker.setLngLat(c);if(map&&!document.body.classList.contains('is-navigating'))map.easeTo({center:c,zoom:Math.max(map.getZoom(),13),duration:350});$('gps-info').textContent='Precisão estimada: '+Math.round(p.coords.accuracy)+' metros. GPS ativo apenas nesta página.';$('status').textContent='GPS ativo';$('home-locate').setAttribute('aria-pressed','true');},e=>{if(e.code===1&&watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}$('gps-info').textContent='GPS indisponível: '+e.message;$('status').textContent='Sem posição';$('home-locate').setAttribute('aria-pressed','false');homeNotice('Não foi possível localizar: '+e.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:18000});});
-$('stop').addEventListener('click',()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;if(marker){marker.remove();marker=null;}$('gps-info').textContent='GPS encerrado. Não guardamos seu histórico.';$('status').textContent='GPS desligado';$('home-locate').setAttribute('aria-pressed','false');});
+$('locate').addEventListener('click',()=>{if(!window.isSecureContext){$('gps-info').textContent='GPS exige HTTPS ou localhost.';return;}if(!navigator.geolocation){$('gps-info').textContent='GPS não disponível neste navegador.';return;}if(watchId!==null)return;$('status').textContent='Solicitando permissão...';watchId=navigator.geolocation.watchPosition(p=>{window.dispatchEvent(new CustomEvent('ultron:gps-fix',{detail:{source:'map',position:p}}));const c=[p.coords.longitude,p.coords.latitude];if(!marker&&map)marker=new maplibregl.Marker({color:'#147c88'}).setLngLat(c).addTo(map);if(marker)marker.setLngLat(c);if(map&&!document.body.classList.contains('is-navigating'))map.easeTo({center:c,zoom:Math.max(map.getZoom(),13),duration:350});$('gps-info').textContent='Precisão estimada: '+Math.round(p.coords.accuracy)+' metros. GPS ativo apenas nesta página.';$('status').textContent='GPS ativo';$('home-locate').setAttribute('aria-pressed','true');},e=>{if(e.code===1&&watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}if(e.code===1)window.dispatchEvent(new CustomEvent('ultron:gps-stop',{detail:{source:'map'}}));$('gps-info').textContent='GPS indisponível: '+e.message;$('status').textContent='Sem posição';$('home-locate').setAttribute('aria-pressed','false');homeNotice('Não foi possível localizar: '+e.message);},{enableHighAccuracy:true,maximumAge:1000,timeout:18000});});
+$('stop').addEventListener('click',()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;window.dispatchEvent(new CustomEvent('ultron:gps-stop',{detail:{source:'map'}}));if(marker){marker.remove();marker=null;}$('gps-info').textContent='GPS encerrado. Não guardamos seu histórico.';$('status').textContent='GPS desligado';$('home-locate').setAttribute('aria-pressed','false');});
 window.addEventListener('beforeunload',()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);});
 
+
+// Velocidade vem do dispositivo; nunca presume limite de velocidade com base num radar próximo.
+const speedElement=$('speedometer');
+const speedValue=$('speed-value');
+const speedState=$('speed-state');
+const speedSources=new Set();
+let speedSample=null, filteredKmH=null, lastSpeedAt=0, lastSampleTime=0;
+function speedDistanceMeters(a,b){
+  const r=6371000, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lon-a.lon)*Math.PI/180;
+  const aa=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+  return 2*r*Math.asin(Math.min(1,Math.sqrt(aa)));
+}
+function receiveSpeedFix(position,source){
+  const c=position?.coords; if(!c)return;
+  const t=Number(position.timestamp)||Date.now();
+  if(Date.now()-t>15000 || t<lastSpeedAt-800)return;
+  speedSources.add(source);
+  speedElement.hidden=false;
+  const accuracy=Number(c.accuracy);
+  const loc={lat:Number(c.latitude),lon:Number(c.longitude),t,accuracy};
+  if(!Number.isFinite(accuracy)||accuracy>50||!Number.isFinite(loc.lat)||!Number.isFinite(loc.lon)){
+    speedValue.textContent='—';speedState.textContent='GPS impreciso';return;
+  }
+  let kmh=typeof c.speed==='number' && Number.isFinite(c.speed) && c.speed>=0 ? c.speed*3.6 : null;
+  let estimate=false;
+  if(kmh===null && speedSample){
+    const dt=(t-speedSample.t)/1000;
+    if(dt>=4 && dt<=25 && speedSample.accuracy<=30 && accuracy<=30){
+      const distance=speedDistanceMeters(speedSample,loc);
+      const uncertainty=1.6*Math.max(accuracy,speedSample.accuracy);
+      if(distance>uncertainty){kmh=distance/dt*3.6;estimate=true;}
+      else if(dt>=6){kmh=0;estimate=true;}
+    }
+  }
+  if(!speedSample||t-speedSample.t>=5000) speedSample=loc;
+  if(kmh!==null && Number.isFinite(kmh)){
+    // A média móvel reduz pequenas oscilações do GPS sem criar velocidade fictícia.
+    filteredKmH=filteredKmH===null?kmh:0.45*kmh+0.55*filteredKmH;
+    speedValue.textContent=String(Math.round(Math.max(0,filteredKmH)));
+    speedState.textContent=estimate?'estimada':'GPS';
+    lastSampleTime=t;
+  }else if(filteredKmH!==null && t-lastSampleTime<6500){
+    // Alguns aparelhos não fornecem velocidade em cada leitura: evita piscar entre amostras.
+    speedState.textContent='GPS intermitente';
+  }else{
+    speedValue.textContent='—';speedState.textContent='aguardando leitura';
+    filteredKmH=null;
+  }
+  lastSpeedAt=Math.max(t,lastSpeedAt);
+}
+window.addEventListener('ultron:gps-fix',event=>receiveSpeedFix(event.detail?.position,event.detail?.source||'map'));
+window.addEventListener('ultron:gps-stop',event=>{
+  speedSources.delete(event.detail?.source);
+  if(speedSources.size===0){speedElement.hidden=true;speedValue.textContent='—';speedState.textContent='GPS';speedSample=null;filteredKmH=null;lastSpeedAt=0;}
+});
+window.setInterval(()=>{
+  if(!speedElement.hidden&&Date.now()-lastSpeedAt>10000){speedValue.textContent='—';speedState.textContent='GPS sem sinal';filteredKmH=null;speedSample=null;}
+},2500);
 
 // Barra inicial minimalista: preserva os botões originais e seus handlers.
 const aboutDialog=$('about-dialog');
