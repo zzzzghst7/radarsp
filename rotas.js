@@ -30,6 +30,85 @@ export function iniciarRotas(map, maplibregl) {
   const etaFloating = $('route-eta-floating');
   const etaFloatingText = $('route-eta-floating-text');
 
+  // Exibe exclusivamente direções e resumo inferior durante a navegação.
+  const navShell=$('navigation-shell'), navEnd=$('nav-end');
+  const navTurnSymbol=$('nav-turn-symbol'),navTurnDistance=$('nav-turn-distance'),navTurnText=$('nav-turn-text');
+  const navTime=$('nav-time'),navArrival=$('nav-arrival'),navDistance=$('nav-distance');
+  let navigationActive=false, navMarker=null, lastCameraAt=0;
+  function directionSymbol(step){
+    const m=step?.maneuver||{};
+    if(m.type==='arrive')return '⚑';
+    if(m.type==='roundabout'||m.type==='rotary')return '⟳';
+    if(m.modifier==='uturn')return '↶';
+    if((m.modifier||'').includes('left'))return '↰';
+    if((m.modifier||'').includes('right'))return '↱';
+    return '↑';
+  }
+  function updateNavInstruction(position){
+    if(!navigationActive||!activeRoute)return;
+    const steps=activeRoute.steps||[];
+    const along=Array.isArray(position)?projectOnRoute(position,activeRoute.line).along:0;
+    const next=steps.find(({along:at})=>at>along+12)||steps[steps.length-1];
+    if(!next){navTurnSymbol.textContent='↑';navTurnDistance.textContent='Siga a rota';navTurnText.textContent='Acompanhe a linha azul';return;}
+    navTurnSymbol.textContent=directionSymbol(next.step);
+    const dist=Math.max(0,next.along-along);
+    navTurnDistance.textContent=next.step.maneuver?.type==='arrive'&&dist<35?'Chegando':distanceText(dist);
+    navTurnText.textContent=directionText(next.step);
+  }
+  function updateNavHud(){
+    if(!navigationActive||!activeRoute)return;
+    const live=gpsWatchId!==null&&lastFix&&lastFix.accuracy<=TRACK_ACCURACY_LIMIT;
+    const seconds=live?lastFix.remainingSeconds:activeRoute.duration;
+    const meters=live?lastFix.remainingDistance:activeRoute.distance;
+    navTime.textContent=durationText(seconds);
+    navDistance.textContent=distanceText(meters);
+    navArrival.textContent='Chegada '+arrivalText(seconds);
+  }
+  function placeNavMarker(position){
+    if(!navigationActive||!position)return;
+    if(!navMarker){
+      const icon=document.createElement('div');icon.className='ultron-nav-marker';
+      const arrow=document.createElement('span');arrow.textContent='▲';icon.append(arrow);
+      navMarker=new maplibregl.Marker({element:icon,anchor:'center'}).setLngLat(position).addTo(map);
+    }else navMarker.setLngLat(position);
+  }
+  function followNavCamera(position,heading=null,force=false){
+    if(!navigationActive||!position)return;
+    const now=Date.now();if(!force&&now-lastCameraAt<900)return;
+    lastCameraAt=now;
+    const camera={center:position,zoom:16.6,pitch:32,padding:{top:135,bottom:175,left:0,right:0},duration:force?750:620};
+    if(Number.isFinite(heading)&&heading>=0&&heading<=360)camera.bearing=heading;
+    map.easeTo(camera);
+  }
+  function enterNavigation(){
+    if(navigationActive||!activeRoute)return;
+    navigationActive=true;
+    document.body.classList.add('is-navigating');navShell.hidden=false;
+    panel.hidden=true;toggle.setAttribute('aria-expanded','false');
+    startPin?.getElement()?.style.setProperty('display','none');
+    map.resize();
+    const position=origin||activeRoute.line[0];
+    placeNavMarker(position);updateNavInstruction(position);updateNavHud();
+    requestAnimationFrame(()=>{map.resize();followNavCamera(position,null,true);});
+    // Acompanha automaticamente, solicitando permissão somente se ainda não concedida.
+    if(gpsWatchId===null && !trackStart.disabled)trackStart.click();
+  }
+  function exitNavigation(){
+    if(!navigationActive)return;
+    navigationActive=false;document.body.classList.remove('is-navigating');navShell.hidden=true;
+    navMarker?.remove();navMarker=null;
+    startPin?.getElement()?.style.removeProperty('display');
+    $('route-clear').click();
+    panel.hidden=false;toggle.setAttribute('aria-expanded','true');
+    // Encerra também o GPS iniciado pelo controle antigo, se estava ativo.
+    if($('status')?.textContent==='GPS ativo')$('stop')?.click();
+    requestAnimationFrame(()=>{
+      map.resize();map.easeTo({pitch:0,bearing:0,padding:{top:0,bottom:0,left:0,right:0},zoom:Math.min(map.getZoom(),14),duration:500});
+    });
+  }
+  navEnd.addEventListener('click',exitNavigation);
+
+
   function routeMathDistance(a,b) {
     const lat=(a[1]+b[1])*Math.PI/360;
     const dx=(b[0]-a[0])*111320*Math.cos(lat);
@@ -86,6 +165,7 @@ export function iniciarRotas(map, maplibregl) {
     summary.textContent=summaryText(distance,seconds,Boolean(live));
     etaFloating.hidden=false;
     etaFloatingText.textContent=`${arrivalText(seconds)} · ${durationText(seconds)} · ${distanceText(distance)}`;
+    updateNavHud();
   }
 
   function announce(message) { status.textContent = message; }
@@ -264,7 +344,11 @@ export function iniciarRotas(map, maplibregl) {
     if(!Array.isArray(coords)||coords.length<2)throw new Error('Geometria não disponível');
     if(!coords.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)))
       throw new Error('Coordenadas inválidas na rota');
-    activeRoute={line:coords,distance:route.distance,duration:route.duration};
+    const steps=route.legs?.flatMap(leg=>leg.steps||[])||[];
+    const guidance=steps.filter(s=>s.maneuver?.type!=='depart'&&Array.isArray(s.maneuver?.location))
+      .map(s=>({step:s,along:projectOnRoute(s.maneuver.location,coords).along}))
+      .sort((a,b)=>a.along-b.along);
+    activeRoute={line:coords,distance:route.distance,duration:route.duration,steps:guidance};
     lastFix=null;offRouteFixes=0;arrivalFixes=0;
     addLineSource();
     map.getSource('ultron-route').setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords}});
@@ -274,7 +358,6 @@ export function iniciarRotas(map, maplibregl) {
       map.fitBounds(bounds,{padding:{top:100,bottom:140,left:55,right:55},maxZoom:15,duration:700});
     }
     instructions.replaceChildren();
-    const steps=route.legs?.flatMap(leg=>leg.steps||[])||[];
     for(const step of steps.slice(0,35)){
       const li=document.createElement('li');
       li.textContent=`${directionText(step)} · ${distanceText(step.distance||0)}`;
@@ -282,6 +365,7 @@ export function iniciarRotas(map, maplibregl) {
     }
     updateRouteSummary();
     updateTrackingButtons();
+    if(navigationActive)updateNavInstruction(origin);
   }
 
   async function requestRoute(start, reason='manual') {
@@ -308,8 +392,13 @@ export function iniciarRotas(map, maplibregl) {
         startText.textContent='Sua localização atual (GPS)';
         startPin?.setLngLat(start);
         trackState.textContent='Rota corrigida. Acompanhamento ativo.';
+        updateNavInstruction(start);
+        followNavCamera(start,null,true);
         announce('Rota recalculada automaticamente; siga a sinalização da via.');
-      }else announce('Rota calculada. Para atualizar a chegada durante o trajeto, ative o acompanhamento por GPS.');
+      }else {
+        announce('Rota calculada. Navegação em tela cheia iniciada.');
+        enterNavigation();
+      }
     }catch(err){
       if(serial===current){
         announce(err.name==='AbortError'?'Consulta cancelada ou demorou demais.':'Falha ao calcular rota: '+err.message);
@@ -332,12 +421,14 @@ export function iniciarRotas(map, maplibregl) {
       return;
     }
     if(Date.now()-position.timestamp>25000){trackState.textContent='Posição antiga; aguardando GPS atualizado.';return;}
+    if(navigationActive){placeNavMarker(point);followNavCamera(point,Number(c.heading));updateNavInstruction(point);}
     const nearEnd=routeMathDistance(point,destination);
     if(nearEnd<40){
       arrivalFixes++;
       if(arrivalFixes>=2){
         summary.textContent='Você chegou perto do destino.';
         stopTracking('Destino alcançado (estimado pelo GPS).');
+        if(navigationActive){navTurnDistance.textContent='Chegada';navTurnText.textContent='Destino aproximado alcançado';navTime.textContent='0 min';navDistance.textContent='0 m';}
         announce('Chegada aproximada. Confira o endereço no local.');
         return;
       }
@@ -348,6 +439,7 @@ export function iniciarRotas(map, maplibregl) {
     if(proj.distance>limit){
       offRouteFixes++;
       trackState.textContent=`Possível saída da rota (${Math.round(proj.distance)} m). Conferindo GPS: ${Math.min(offRouteFixes,3)}/3.`;
+      if(navigationActive && offRouteFixes>=2){navTurnDistance.textContent='Fora da rota';navTurnText.textContent='Conferindo trajeto pelo GPS…';}
       if(offRouteFixes>=3 && controller===null && Date.now()-lastRerouteAt>REPLAN_COOLDOWN_MS){
         offRouteFixes=0;lastRerouteAt=Date.now();
         requestRoute(point,'automatic');
@@ -357,6 +449,7 @@ export function iniciarRotas(map, maplibregl) {
     offRouteFixes=0;
     const fraction=Math.min(1,Math.max(0,proj.along/proj.total));
     lastFix={accuracy,remainingDistance:activeRoute.distance*(1-fraction),remainingSeconds:activeRoute.duration*(1-fraction)};
+    if(navigationActive)updateNavInstruction(point);
     updateRouteSummary();
     trackState.textContent=`Acompanhando GPS · precisão ${Math.round(accuracy)} m · chegada estimada ${arrivalText(lastFix.remainingSeconds)}`;
   }
