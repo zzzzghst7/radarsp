@@ -17,6 +17,76 @@ export function iniciarRotas(map, maplibregl) {
   let controller = null, serial = 0;
   let searchController = null, searchSerial = 0, lastGeocodeRequestAt = 0;
   const addressCache = new Map();
+  // Navegação voluntária: sem gravação de histórico nem alerta relacionado à fiscalização.
+  let activeRoute = null; // geometria e duração retornadas pelo OSRM
+  let gpsWatchId = null, lastFix = null, etaTimer = null;
+  let offRouteFixes = 0, arrivalFixes = 0, lastRerouteAt = 0;
+  const TRACK_ACCURACY_LIMIT = 45; // metros; rejeita posições pouco confiáveis
+  const OFF_ROUTE_METERS = 85;
+  const REPLAN_COOLDOWN_MS = 60000;
+  const trackStart = $('route-track-start');
+  const trackStop = $('route-track-stop');
+  const trackState = $('route-track-state');
+  const etaFloating = $('route-eta-floating');
+  const etaFloatingText = $('route-eta-floating-text');
+
+  function routeMathDistance(a,b) {
+    const lat=(a[1]+b[1])*Math.PI/360;
+    const dx=(b[0]-a[0])*111320*Math.cos(lat);
+    const dy=(b[1]-a[1])*110540;
+    return Math.hypot(dx,dy);
+  }
+  // Ponto GPS projetado sobre os segmentos da linha azul (não identifica a pista física).
+  function projectOnRoute(point, line) {
+    let best={distance:Infinity,along:0};
+    let running=0;
+    for(let i=1;i<line.length;i++) {
+      const a=line[i-1],b=line[i];
+      const lat=point[1]*Math.PI/180;
+      const kx=111320*Math.cos(lat), ky=110540;
+      const vx=(b[0]-a[0])*kx,vy=(b[1]-a[1])*ky;
+      const wx=(point[0]-a[0])*kx,wy=(point[1]-a[1])*ky;
+      const len2=vx*vx+vy*vy;
+      if(!len2)continue;
+      const t=Math.max(0,Math.min(1,(wx*vx+wy*vy)/len2));
+      const d=Math.hypot(wx-t*vx,wy-t*vy);
+      const seglen=Math.sqrt(len2);
+      if(d<best.distance)best={distance:d,along:running+t*seglen};
+      running+=seglen;
+    }
+    return {...best,total:running};
+  }
+  function durationText(seconds) {
+    const minutes=Math.max(1,Math.ceil(seconds/60));
+    return minutes>=60?`${Math.floor(minutes/60)} h ${minutes%60} min`:`${minutes} min`;
+  }
+  function arrivalText(seconds){
+    const when=new Date(Date.now()+Math.max(0,seconds)*1000);
+    return when.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+  function summaryText(distance,seconds,live=false){
+    return `${distanceText(distance)} restantes · ${durationText(seconds)} · chegada prevista ${arrivalText(seconds)}${live?' (GPS)':''} · sem trânsito em tempo real`;
+  }
+  function updateTrackingButtons(){
+    trackStart.disabled=!activeRoute || gpsWatchId!==null;
+    trackStop.disabled=gpsWatchId===null;
+  }
+  function stopTracking(message='Acompanhamento desligado.'){
+    if(gpsWatchId!==null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId=null;lastFix=null;offRouteFixes=0;arrivalFixes=0;
+    if(etaTimer!==null){clearInterval(etaTimer);etaTimer=null;}
+    trackState.textContent=message;
+    updateTrackingButtons();
+  }
+  function updateRouteSummary(){
+    if(!activeRoute)return;
+    const live=gpsWatchId!==null && lastFix && lastFix.accuracy<=TRACK_ACCURACY_LIMIT;
+    const distance=live?lastFix.remainingDistance:activeRoute.distance;
+    const seconds=live?lastFix.remainingSeconds:activeRoute.duration;
+    summary.textContent=summaryText(distance,seconds,Boolean(live));
+    etaFloating.hidden=false;
+    etaFloatingText.textContent=`${arrivalText(seconds)} · ${durationText(seconds)} · ${distanceText(distance)}`;
+  }
 
   function announce(message) { status.textContent = message; }
   function enableButtons() { $('route-calc').disabled = !(origin && destination); }
@@ -31,6 +101,10 @@ export function iniciarRotas(map, maplibregl) {
   else map.once('load',addLineSource);
 
   function resetDrawnRoute() {
+    stopTracking();
+    activeRoute=null;
+    etaFloating.hidden=true;
+    updateTrackingButtons();
     serial++;
     controller?.abort(); controller = null;
     if (map.getSource('ultron-route')) map.getSource('ultron-route').setData(empty);
@@ -185,47 +259,129 @@ export function iniciarRotas(map, maplibregl) {
     if (move.type === 'turn' || move.type === 'end of road' || move.type === 'fork') return `Vire ${direction[move.modifier] || 'conforme a via'}${road}`;
     return `Continue${road}`;
   }
-  $('route-calc').addEventListener('click', async () => {
-    if (!origin || !destination) return announce('Defina origem e destino primeiro.');
-    if (controller) controller.abort();
-    const current = ++serial;
-    const req = new AbortController(); controller = req;
-    const timeout = setTimeout(()=>req.abort(),17000);
-    const co = p => `${p[0].toFixed(6)},${p[1].toFixed(6)}`;
-    const url = `https://router.project-osrm.org/route/v1/driving/${co(origin)};${co(destination)}?overview=full&geometries=geojson&steps=true`;
-    $('route-calc').disabled = true;
-    announce('Consultando o serviço de rotas OSRM...');
-    try {
-      const response = await fetch(url,{signal:req.signal});
-      if(!response.ok) throw new Error('HTTP '+response.status);
-      const answer = await response.json();
-      if(answer.code!=='Ok' || !answer.routes?.length) throw new Error(answer.message || 'Rota não encontrada');
-      const route = answer.routes[0];
-      const coords = route.geometry?.coordinates;
-      if(!Array.isArray(coords) || coords.length < 2) throw new Error('Geometria não disponível');
-      if (serial !== current) return;
-      addLineSource();
-      map.getSource('ultron-route').setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords}});
-      const bounds = new maplibregl.LngLatBounds(coords[0],coords[0]);
-      for(const p of coords) bounds.extend(p);
+  function showRoute(route, follow=false) {
+    const coords=route.geometry?.coordinates;
+    if(!Array.isArray(coords)||coords.length<2)throw new Error('Geometria não disponível');
+    if(!coords.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)))
+      throw new Error('Coordenadas inválidas na rota');
+    activeRoute={line:coords,distance:route.distance,duration:route.duration};
+    lastFix=null;offRouteFixes=0;arrivalFixes=0;
+    addLineSource();
+    map.getSource('ultron-route').setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords}});
+    if(!follow){
+      const bounds=new maplibregl.LngLatBounds(coords[0],coords[0]);
+      for(const p of coords)bounds.extend(p);
       map.fitBounds(bounds,{padding:{top:100,bottom:140,left:55,right:55},maxZoom:15,duration:700});
-      const minutes = Math.max(1,Math.round(route.duration/60));
-      const eta = minutes>=60 ? `${Math.floor(minutes/60)} h ${minutes%60} min` : `${minutes} min`;
-      summary.textContent=`${distanceText(route.distance)} · estimativa ${eta} (sem trânsito em tempo real)`;
-      instructions.replaceChildren();
-      const steps = route.legs?.flatMap(leg=>leg.steps||[]) || [];
-      for(const step of steps.slice(0,35)) {
-        const li=document.createElement('li');
-        li.textContent=`${directionText(step)} · ${distanceText(step.distance||0)}`;
-        instructions.appendChild(li);
-      }
-      announce('Rota calculada. Confira o trajeto antes de sair.');
-    } catch(err) {
-      if(serial===current) announce(err.name==='AbortError'?'Consulta cancelada ou demorou demais. Tente novamente.':'Não foi possível calcular: '+err.message);
-    } finally {
-      clearTimeout(timeout);
-      if(serial===current){controller=null;enableButtons();}
     }
+    instructions.replaceChildren();
+    const steps=route.legs?.flatMap(leg=>leg.steps||[])||[];
+    for(const step of steps.slice(0,35)){
+      const li=document.createElement('li');
+      li.textContent=`${directionText(step)} · ${distanceText(step.distance||0)}`;
+      instructions.appendChild(li);
+    }
+    updateRouteSummary();
+    updateTrackingButtons();
+  }
+
+  async function requestRoute(start, reason='manual') {
+    if(!start || !destination) return announce('Defina origem e destino primeiro.');
+    controller?.abort();
+    const current=++serial;
+    const req=new AbortController();controller=req;
+    const timeout=setTimeout(()=>req.abort(),17000);
+    const co=p=>`${p[0].toFixed(6)},${p[1].toFixed(6)}`;
+    const url=`https://router.project-osrm.org/route/v1/driving/${co(start)};${co(destination)}?overview=full&geometries=geojson&steps=true`;
+    $('route-calc').disabled=true;
+    announce(reason==='automatic'?'Desvio confirmado: recalculando trajeto...':'Consultando o serviço de rotas OSRM...');
+    try{
+      const response=await fetch(url,{signal:req.signal});
+      if(!response.ok)throw new Error('HTTP '+response.status);
+      const answer=await response.json();
+      if(answer.code!=='Ok'||!answer.routes?.length)throw new Error(answer.message||'Rota não encontrada');
+      const route=answer.routes[0];
+      if(!Number.isFinite(route.distance)||!Number.isFinite(route.duration))throw new Error('Duração inválida');
+      if(serial!==current)return;
+      showRoute(route,reason==='automatic');
+      if(reason==='automatic'){
+        origin=start;
+        startText.textContent='Sua localização atual (GPS)';
+        startPin?.setLngLat(start);
+        trackState.textContent='Rota corrigida. Acompanhamento ativo.';
+        announce('Rota recalculada automaticamente; siga a sinalização da via.');
+      }else announce('Rota calculada. Para atualizar a chegada durante o trajeto, ative o acompanhamento por GPS.');
+    }catch(err){
+      if(serial===current){
+        announce(err.name==='AbortError'?'Consulta cancelada ou demorou demais.':'Falha ao calcular rota: '+err.message);
+        if(reason==='automatic')trackState.textContent='Não foi possível recalcular. Mantendo última rota; nova tentativa após intervalo.';
+      }
+    }finally{
+      clearTimeout(timeout);
+      if(serial===current){controller=null;enableButtons();updateTrackingButtons();}
+    }
+  }
+  $('route-calc').addEventListener('click',()=>requestRoute(origin));
+
+  function receiveGps(position){
+    if(gpsWatchId===null||!activeRoute||!destination)return;
+    const c=position.coords;
+    const accuracy=Number(c.accuracy), point=[Number(c.longitude),Number(c.latitude)];
+    if(!point.every(Number.isFinite)||!Number.isFinite(accuracy)||accuracy>TRACK_ACCURACY_LIMIT){
+      trackState.textContent=`GPS impreciso (${Number.isFinite(accuracy)?Math.round(accuracy):'?'} m). Aguardando posição melhor.`;
+      offRouteFixes=0;
+      return;
+    }
+    if(Date.now()-position.timestamp>25000){trackState.textContent='Posição antiga; aguardando GPS atualizado.';return;}
+    const nearEnd=routeMathDistance(point,destination);
+    if(nearEnd<40){
+      arrivalFixes++;
+      if(arrivalFixes>=2){
+        summary.textContent='Você chegou perto do destino.';
+        stopTracking('Destino alcançado (estimado pelo GPS).');
+        announce('Chegada aproximada. Confira o endereço no local.');
+        return;
+      }
+    }else arrivalFixes=0;
+    const proj=projectOnRoute(point,activeRoute.line);
+    if(proj.total<=0)return;
+    const limit=Math.max(OFF_ROUTE_METERS,accuracy*2.5);
+    if(proj.distance>limit){
+      offRouteFixes++;
+      trackState.textContent=`Possível saída da rota (${Math.round(proj.distance)} m). Conferindo GPS: ${Math.min(offRouteFixes,3)}/3.`;
+      if(offRouteFixes>=3 && controller===null && Date.now()-lastRerouteAt>REPLAN_COOLDOWN_MS){
+        offRouteFixes=0;lastRerouteAt=Date.now();
+        requestRoute(point,'automatic');
+      }
+      return;
+    }
+    offRouteFixes=0;
+    const fraction=Math.min(1,Math.max(0,proj.along/proj.total));
+    lastFix={accuracy,remainingDistance:activeRoute.distance*(1-fraction),remainingSeconds:activeRoute.duration*(1-fraction)};
+    updateRouteSummary();
+    trackState.textContent=`Acompanhando GPS · precisão ${Math.round(accuracy)} m · chegada estimada ${arrivalText(lastFix.remainingSeconds)}`;
+  }
+  trackStart.addEventListener('click',()=>{
+    if(!activeRoute||!destination)return announce('Calcule a rota antes de acompanhar.');
+    if(gpsWatchId!==null)return;
+    if(!window.isSecureContext||!navigator.geolocation){announce('GPS requer HTTPS e permissão de localização.');return;}
+    lastRerouteAt=0;offRouteFixes=0;
+    trackState.textContent='Solicitando autorização para acompanhar o trajeto...';
+    gpsWatchId=navigator.geolocation.watchPosition(receiveGps,err=>{
+      trackState.textContent='GPS indisponível: '+err.message;
+      if(err.code===1)stopTracking('Permissão de GPS negada. Acompanhamento encerrado.');
+    },{enableHighAccuracy:true,maximumAge:1500,timeout:18000});
+    etaTimer=setInterval(()=>{
+      if(lastFix&&gpsWatchId!==null)updateRouteSummary();
+    },30000);
+    updateTrackingButtons();
+    announce('Acompanhamento iniciado. Mantenha o navegador aberto; não use a tela enquanto dirige.');
   });
+  trackStop.addEventListener('click',()=>{
+    stopTracking();announce('Acompanhamento por GPS encerrado.');
+  });
+  // O botão global "Encerrar" também encerra a navegação para não surpreender o usuário.
+  $('stop')?.addEventListener('click',()=>stopTracking('GPS encerrado.'));
+  window.addEventListener('pagehide',()=>stopTracking('Acompanhamento encerrado.'));
   enableButtons();
+  updateTrackingButtons();
 }
