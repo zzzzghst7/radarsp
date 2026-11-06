@@ -35,6 +35,37 @@ export function iniciarRotas(map, maplibregl) {
   const navTurnSymbol=$('nav-turn-symbol'),navTurnDistance=$('nav-turn-distance'),navTurnText=$('nav-turn-text');
   const navTime=$('nav-time'),navArrival=$('nav-arrival'),navDistance=$('nav-distance');
   let navigationActive=false, navMarker=null, lastCameraAt=0;
+  let cameraFollowing=true, lastNavPosition=null, recenterButton=null;
+
+  function ensureRecenterButton(){
+    if(recenterButton)return;
+    recenterButton=document.createElement('button');
+    recenterButton.type='button';
+    recenterButton.textContent='Voltar à minha posição';
+    recenterButton.setAttribute('aria-label','Voltar à minha posição');
+    Object.assign(recenterButton.style,{
+      position:'absolute', top:'102px', right:'14px', zIndex:'22',
+      pointerEvents:'auto', border:'1px solid #8bb9d5', borderRadius:'12px',
+      padding:'11px 14px', background:'#10283e', color:'#fff',
+      font:'600 14px system-ui', boxShadow:'0 3px 14px rgba(0,0,0,.5)',
+      cursor:'pointer'
+    });
+    recenterButton.hidden=true;
+    recenterButton.addEventListener('click',()=>{
+      cameraFollowing=true;
+      recenterButton.hidden=true;
+      if(lastNavPosition || origin || activeRoute?.line?.[0]){
+        followNavCamera(lastNavPosition || origin || activeRoute.line[0], null, true);
+      }
+    });
+    navShell.append(recenterButton);
+  }
+
+  map.on('movestart',event=>{
+    if(!navigationActive || !event?.originalEvent) return;
+    cameraFollowing=false;
+    if(recenterButton) recenterButton.hidden=false;
+  });
   function directionSymbol(step){
     const m=step?.maneuver||{};
     if(m.type==='arrive')return '⚑';
@@ -66,6 +97,7 @@ export function iniciarRotas(map, maplibregl) {
   }
   function placeNavMarker(position){
     if(!navigationActive||!position)return;
+    lastNavPosition = position;
     if(!navMarker){
       const icon=document.createElement('div');icon.className='ultron-nav-marker';
       const arrow=document.createElement('span');arrow.textContent='▲';icon.append(arrow);
@@ -73,16 +105,19 @@ export function iniciarRotas(map, maplibregl) {
     }else navMarker.setLngLat(position);
   }
   function followNavCamera(position,heading=null,force=false){
-    if(!navigationActive||!position)return;
+    if(!navigationActive||!position||!cameraFollowing)return;
     const now=Date.now();if(!force&&now-lastCameraAt<900)return;
     lastCameraAt=now;
     const camera={center:position,zoom:16.6,pitch:32,padding:{top:135,bottom:175,left:0,right:0},duration:force?750:620};
     if(Number.isFinite(heading)&&heading>=0&&heading<=360)camera.bearing=heading;
     map.easeTo(camera);
   }
-  function enterNavigation(){
+   function enterNavigation(){
     if(navigationActive||!activeRoute)return;
     navigationActive=true;
+    cameraFollowing=true;
+    ensureRecenterButton();
+    recenterButton.hidden=true;
     document.body.classList.add('is-navigating');navShell.hidden=false;
     panel.hidden=true;toggle.setAttribute('aria-expanded','false');
     startPin?.getElement()?.style.setProperty('display','none');
@@ -90,17 +125,18 @@ export function iniciarRotas(map, maplibregl) {
     const position=origin||activeRoute.line[0];
     placeNavMarker(position);updateNavInstruction(position);updateNavHud();
     requestAnimationFrame(()=>{map.resize();followNavCamera(position,null,true);});
-    // Acompanha automaticamente, solicitando permissão somente se ainda não concedida.
     if(gpsWatchId===null && !trackStart.disabled)trackStart.click();
   }
-  function exitNavigation(){
+   function exitNavigation(){
     if(!navigationActive)return;
-    navigationActive=false;document.body.classList.remove('is-navigating');navShell.hidden=true;
+    navigationActive=false;
+    cameraFollowing=false;
+    if(recenterButton) recenterButton.hidden=true;
+    document.body.classList.remove('is-navigating');navShell.hidden=true;
     navMarker?.remove();navMarker=null;
-    startPin?.getElement()?.style.removeProperty('display');
+    startPin?.getElement?.()?.style.removeProperty('display');
     $('route-clear').click();
     panel.hidden=false;toggle.setAttribute('aria-expanded','true');
-    // Encerra também o GPS iniciado pelo controle antigo, se estava ativo.
     if($('status')?.textContent==='GPS ativo')$('stop')?.click();
     requestAnimationFrame(()=>{
       map.resize();map.easeTo({pitch:0,bearing:0,padding:{top:0,bottom:0,left:0,right:0},zoom:Math.min(map.getZoom(),14),duration:500});
