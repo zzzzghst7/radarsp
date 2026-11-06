@@ -18,7 +18,7 @@ export function iniciarRotas(map, maplibregl) {
   let controller = null, serial = 0;
   let searchController = null, searchSerial = 0, lastGeocodeRequestAt = 0;
   const addressCache = new Map();
-  // Navegação voluntária: sem gravação de histórico nem alerta relacionado à fiscalização.
+  // Navegação voluntária com avisos locais, sem gravação de histórico.
   let activeRoute = null; // geometria e duração retornadas pelo OSRM
   let gpsWatchId = null, lastFix = null, etaTimer = null;
   let offRouteFixes = 0, arrivalFixes = 0, lastRerouteAt = 0;
@@ -37,6 +37,63 @@ export function iniciarRotas(map, maplibregl) {
   const navTime=$('nav-time'),navArrival=$('nav-arrival'),navDistance=$('nav-distance');
   let navigationActive=false, navMarker=null, lastCameraAt=0;
   let cameraFollowing=true, lastNavPosition=null, recenterButton=null;
+  // Modo temporário e isolado: nenhum watchPosition é iniciado na simulação.
+  let simulationRunning=false, simulationClock=null, simulationTimer=null, simulationTickAt=0;
+  const simChoice=document.createElement('input');simChoice.type='checkbox';simChoice.id='radar-simulation';
+  const simLabel=document.createElement('label');simLabel.className='sim-choice';
+  simLabel.append(simChoice,document.createTextNode(' Testar rota em simulação (sem GPS real)'));
+  const simHint=document.createElement('p');simHint.textContent='Para testar de casa, marque esta opção e escolha origem e destino por endereço. Os radares continuam sendo os da base publicada.';
+  panel.insertBefore(simLabel,$('route-calc').parentElement);simLabel.after(simHint);
+  const simStyle=document.createElement('style');simStyle.textContent=`
+    .sim-choice{display:flex;gap:8px;align-items:center;padding:12px;background:#493714;border:1px solid #d8aa48;border-radius:10px;font:600 13px system-ui;color:#fff0bd}
+    .sim-choice input{width:20px;height:20px;flex:none}
+    #simulation-controls[hidden]{display:none!important}
+    #simulation-controls{position:absolute;z-index:24;left:12px;right:12px;top:calc(163px + env(safe-area-inset-top));max-width:420px;margin:auto;border:1px solid #efbf5b;border-radius:14px;background:#392b0ff5;color:#fff1c4;padding:10px;pointer-events:auto;font:12px system-ui;box-shadow:0 5px 20px #0008}
+    #simulation-controls strong{display:block;font-size:13px;letter-spacing:.04em}
+    #simulation-controls .sim-progress{display:block;margin:5px 0;font-variant-numeric:tabular-nums}
+    #simulation-controls .sim-buttons{display:flex;flex-wrap:wrap;gap:6px}
+    #simulation-controls button,#simulation-controls select{min-height:38px;background:#634917;border:1px solid #b28f46;border-radius:7px;color:#fff;padding:6px 8px;font:600 12px system-ui}
+    #simulation-controls button:disabled{opacity:.5}
+    @media(max-height:500px){#simulation-controls{top:8px;left:8px;right:auto;width:230px;padding:8px}body.is-simulating .nav-top{left:auto;right:8px;width:calc(100% - 265px);min-height:70px;padding:10px}body.is-simulating #radar-alert{bottom:120px}}
+  `;document.head.append(simStyle);
+  const simPanel=document.createElement('section');simPanel.id='simulation-controls';simPanel.hidden=true;simPanel.setAttribute('aria-label','Controles de simulação');
+  const simTitle=document.createElement('strong');simTitle.textContent='SIMULAÇÃO · POSIÇÃO FICTÍCIA';
+  const simProgress=document.createElement('span');simProgress.className='sim-progress';
+  const simButtons=document.createElement('div');simButtons.className='sim-buttons';
+  function simButton(text,action){const b=document.createElement('button');b.type='button';b.textContent=text;b.addEventListener('click',action);simButtons.append(b);return b;}
+  const simPause=simButton('Pausar',()=>{if(simulationClock){simulationClock.paused=!simulationClock.paused;simulationTickAt=Date.now();simPause.textContent=simulationClock.paused?'Continuar':'Pausar';}});
+  const simAdvance=simButton('+500 m',()=>{if(simulationClock){simulationClock.seek(simulationClock.along+500);radarAlerts.resetPosition();lastFix=null;offRouteFixes=0;arrivalFixes=0;emitSimulation();}});
+  simButton('Reiniciar',()=>{if(activeRoute)startSimulation();});
+  const simRate=document.createElement('select');simRate.setAttribute('aria-label','Velocidade de reprodução');
+  for(const rate of [1,2,3]){const o=document.createElement('option');o.value=String(rate);o.textContent=rate+'×';simRate.append(o);}simButtons.append(simRate);
+  simRate.addEventListener('change',()=>{if(simulationClock)simulationClock.rate=Number(simRate.value);});
+  const simSpeed=document.createElement('select');simSpeed.setAttribute('aria-label','Velocidade simulada em quilômetros por hora');
+  for(const speed of [30,50,60,80,100]){const o=document.createElement('option');o.value=String(speed);o.textContent=speed+' km/h';o.selected=speed===60;simSpeed.append(o);}simButtons.append(simSpeed);
+  simSpeed.addEventListener('change',()=>{if(simulationClock)simulationClock.kmh=Number(simSpeed.value);});
+  simPanel.append(simTitle,simProgress,simButtons);navShell.append(simPanel);
+  function emitSimulation(){
+    if(!simulationRunning||!simulationClock)return;
+    const position=simulationClock.position(Date.now());
+    simProgress.textContent=`${Math.round(simulationClock.along)} / ${Math.round(simulationClock.total)} m · ${simulationClock.kmh} km/h · reprodução ${simulationClock.rate}×`;
+    receiveGps(position);
+    if(simulationClock&&simulationClock.along>=simulationClock.total){stopTracking('Simulação concluída.');simProgress.textContent='Fim da simulação. Reinicie ou encerre a navegação.';}
+  }
+  function startSimulation(){
+    if(!activeRoute)return;
+    // Desliga também eventual GPS ativado na tela inicial, antes de emitir posições fictícias.
+    $('stop')?.click();
+    stopTracking();
+    simulationClock=new RoutePlayback(activeRoute.line,{kmh:Number(simSpeed.value)||60,rate:Number(simRate.value)||1});
+    simulationRunning=true;simulationTickAt=Date.now();lastCameraAt=0;
+    document.body.classList.add('is-simulating');simPanel.hidden=false;simPause.disabled=false;simAdvance.disabled=false;simPause.textContent='Pausar';
+    radarAlerts.resetPosition();radarAlerts.start();
+    emitSimulation();
+    simulationTimer=setInterval(()=>{
+      if(!simulationRunning)return;
+      const now=Date.now();simulationClock.tick(now-simulationTickAt);simulationTickAt=now;emitSimulation();
+    },1000);
+    updateTrackingButtons();announce('Simulação ativa. Nenhuma posição GPS real é usada.');
+  }
 
   function ensureRecenterButton(){
     if(recenterButton)return;
@@ -89,7 +146,7 @@ export function iniciarRotas(map, maplibregl) {
   }
   function updateNavHud(){
     if(!navigationActive||!activeRoute)return;
-    const live=gpsWatchId!==null&&lastFix&&lastFix.accuracy<=TRACK_ACCURACY_LIMIT;
+    const live=(gpsWatchId!==null||simulationRunning)&&lastFix&&lastFix.accuracy<=TRACK_ACCURACY_LIMIT;
     const seconds=live?lastFix.remainingSeconds:activeRoute.duration;
     const meters=live?lastFix.remainingDistance:activeRoute.distance;
     navTime.textContent=durationText(seconds);
@@ -131,6 +188,7 @@ export function iniciarRotas(map, maplibregl) {
    function exitNavigation(){
     if(!navigationActive)return;
     navigationActive=false;
+    simPanel.hidden=true;document.body.classList.remove('is-simulating');
     cameraFollowing=false;
     if(recenterButton) recenterButton.hidden=true;
     document.body.classList.remove('is-navigating');navShell.hidden=true;
@@ -184,10 +242,14 @@ export function iniciarRotas(map, maplibregl) {
     return `${distanceText(distance)} restantes · ${durationText(seconds)} · chegada prevista ${arrivalText(seconds)}${live?' (GPS)':''} · sem trânsito em tempo real`;
   }
   function updateTrackingButtons(){
-    trackStart.disabled=!activeRoute || gpsWatchId!==null;
-    trackStop.disabled=gpsWatchId===null;
+    trackStart.disabled=!activeRoute || gpsWatchId!==null || simulationRunning;
+    trackStop.disabled=gpsWatchId===null && !simulationRunning;
   }
   function stopTracking(message='Acompanhamento desligado.'){
+    if(simulationTimer!==null)clearInterval(simulationTimer);
+    simulationTimer=null;simulationRunning=false;simulationClock=null;
+    simPause.disabled=true;simAdvance.disabled=true;
+    if(!simPanel.hidden)simProgress.textContent='Simulação encerrada. Reinicie ou encerre a navegação.';
     radarAlerts.stop();
     if(gpsWatchId!==null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatchId);
     gpsWatchId=null;lastFix=null;offRouteFixes=0;arrivalFixes=0;
@@ -198,7 +260,7 @@ export function iniciarRotas(map, maplibregl) {
   }
   function updateRouteSummary(){
     if(!activeRoute)return;
-    const live=gpsWatchId!==null && lastFix && lastFix.accuracy<=TRACK_ACCURACY_LIMIT;
+    const live=(gpsWatchId!==null||simulationRunning) && lastFix && lastFix.accuracy<=TRACK_ACCURACY_LIMIT;
     const distance=live?lastFix.remainingDistance:activeRoute.distance;
     const seconds=live?lastFix.remainingSeconds:activeRoute.duration;
     summary.textContent=summaryText(distance,seconds,Boolean(live));
@@ -221,6 +283,7 @@ export function iniciarRotas(map, maplibregl) {
 
   function resetDrawnRoute() {
     stopTracking();
+    simPanel.hidden=true;document.body.classList.remove('is-simulating');
     activeRoute=null;
     etaFloating.hidden=true;
     updateTrackingButtons();
@@ -452,7 +515,7 @@ export function iniciarRotas(map, maplibregl) {
   $('route-calc').addEventListener('click',()=>requestRoute(origin));
 
   function receiveGps(position){
-    if(gpsWatchId===null||!activeRoute||!destination)return;
+    if((gpsWatchId===null&&!simulationRunning)||!activeRoute||!destination)return;
     radarAlerts.update(position);
     window.dispatchEvent(new CustomEvent('ultron:gps-fix',{detail:{source:'route',position}}));
     const c=position.coords;
@@ -497,6 +560,8 @@ export function iniciarRotas(map, maplibregl) {
   }
   trackStart.addEventListener('click',()=>{
     if(!activeRoute||!destination)return announce('Calcule a rota antes de acompanhar.');
+    if(simulationRunning)return;
+    if(simChoice.checked){startSimulation();return;}
     if(gpsWatchId!==null)return;
     if(!window.isSecureContext||!navigator.geolocation){announce('GPS requer HTTPS e permissão de localização.');return;}
     lastRerouteAt=0;offRouteFixes=0;
@@ -719,6 +784,24 @@ export function iniciarAlertasRadares(){
     start(){active=true;lastFix=null;engine.resetPosition();render({state:'waiting'});},
     stop(){active=false;lastFix=null;engine.resetPosition();cancelVoice();box.hidden=true;},
     unavailable(){render({state:'stale'});},
+    resetPosition(){engine.resetPosition();lastFix=null;spoken.clear();passedUntil=0;lastRender='';},
     update(position){if(!active)return;const result=engine.update(position);if(result.state!=='old')lastFix=position;render(result);}
   };
+}
+
+// Reprodução temporária. A taxa acelera o percurso; coords.speed mantém a velocidade escolhida.
+export class RoutePlayback {
+  constructor(line,{kmh=60,rate=1}={}){
+    if(!Array.isArray(line)||line.length<2||!line.every(validCoord))throw new Error('Rota inválida para simulação');
+    this.segments=segmentsOf(line);this.total=this.segments.reduce((sum,s)=>sum+s.length,0);
+    if(!this.total)throw new Error('Rota sem extensão');
+    this.along=0;this.kmh=kmh;this.rate=rate;this.paused=false;
+  }
+  tick(ms){if(!this.paused)this.seek(this.along+Math.max(0,Math.min(2000,ms))/1000*this.kmh/3.6*this.rate);}
+  seek(meters){this.along=Math.max(0,Math.min(this.total,meters));}
+  position(timestamp){
+    const s=this.segments.find(s=>s.along+s.length>=this.along)||this.segments.at(-1);
+    const t=Math.max(0,Math.min(1,(this.along-s.along)/s.length));
+    return {timestamp,coords:{longitude:s.a[0]+(s.b[0]-s.a[0])*t,latitude:s.a[1]+(s.b[1]-s.a[1])*t,accuracy:3,heading:s.heading,speed:this.paused?0:this.kmh/3.6}};
+  }
 }
