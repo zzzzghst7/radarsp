@@ -1,7 +1,8 @@
 // Ultron V5 — Planejador de rotas com busca textual de endereço (MapLibre + Nominatim + OSRM).
 // Nominatim: somente consultas iniciadas pelo usuário, no máximo 1 por segundo por navegador.
-// Não faz autocomplete remoto, monitoramento de fiscalização ou alertas de radares.
+// Alertas locais de radares cadastrados; não consulta posição do usuário na API de dados.
 export function iniciarRotas(map, maplibregl) {
+  const radarAlerts = iniciarAlertasRadares();
   const $ = id => document.getElementById(id);
   const panel = $('route-panel');
   const toggle = $('route-toggle');
@@ -187,6 +188,7 @@ export function iniciarRotas(map, maplibregl) {
     trackStop.disabled=gpsWatchId===null;
   }
   function stopTracking(message='Acompanhamento desligado.'){
+    radarAlerts.stop();
     if(gpsWatchId!==null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatchId);
     gpsWatchId=null;lastFix=null;offRouteFixes=0;arrivalFixes=0;
     window.dispatchEvent(new CustomEvent('ultron:gps-stop',{detail:{source:'route'}}));
@@ -386,6 +388,7 @@ export function iniciarRotas(map, maplibregl) {
       .map(s=>({step:s,along:projectOnRoute(s.maneuver.location,coords).along}))
       .sort((a,b)=>a.along-b.along);
     activeRoute={line:coords,distance:route.distance,duration:route.duration,steps:guidance};
+    radarAlerts.setRoute(coords);
     lastFix=null;offRouteFixes=0;arrivalFixes=0;
     addLineSource();
     map.getSource('ultron-route').setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords}});
@@ -450,6 +453,7 @@ export function iniciarRotas(map, maplibregl) {
 
   function receiveGps(position){
     if(gpsWatchId===null||!activeRoute||!destination)return;
+    radarAlerts.update(position);
     window.dispatchEvent(new CustomEvent('ultron:gps-fix',{detail:{source:'route',position}}));
     const c=position.coords;
     const accuracy=Number(c.accuracy), point=[Number(c.longitude),Number(c.latitude)];
@@ -496,8 +500,10 @@ export function iniciarRotas(map, maplibregl) {
     if(gpsWatchId!==null)return;
     if(!window.isSecureContext||!navigator.geolocation){announce('GPS requer HTTPS e permissão de localização.');return;}
     lastRerouteAt=0;offRouteFixes=0;
+    radarAlerts.start();
     trackState.textContent='Solicitando autorização para acompanhar o trajeto...';
     gpsWatchId=navigator.geolocation.watchPosition(receiveGps,err=>{
+      radarAlerts.unavailable();
       trackState.textContent='GPS indisponível: '+err.message;
       if(err.code===1)stopTracking('Permissão de GPS negada. Acompanhamento encerrado.');
     },{enableHighAccuracy:true,maximumAge:1500,timeout:18000});
@@ -515,4 +521,204 @@ export function iniciarRotas(map, maplibregl) {
   window.addEventListener('pagehide',()=>stopTracking('Acompanhamento encerrado.'));
   enableButtons();
   updateTrackingButtons();
+}
+
+// Motor independente da câmera. Distâncias em metros ao longo da rota OSRM.
+const RADAR_CORRIDOR=22, GPS_CORRIDOR=35, RADAR_LOOKAHEAD=1000;
+const validCoord=p=>Array.isArray(p)&&p.length>=2&&p.slice(0,2).every(Number.isFinite)&&Math.abs(p[0])<=180&&Math.abs(p[1])<=90;
+const angleDifference=(a,b)=>Math.abs(((a-b+540)%360)-180);
+function localVector(a,b){return [(b[0]-a[0])*111320*Math.cos((a[1]+b[1])*Math.PI/360),(b[1]-a[1])*110540];}
+function pointDistance(a,b){return Math.hypot(...localVector(a,b));}
+function compassHeading(a,b){const [x,y]=localVector(a,b);return (Math.atan2(x,y)*180/Math.PI+360)%360;}
+function radarHeading(p){
+  const raw=p.sentido_graus ?? p.azimute;
+  if(typeof raw==='number'&&Number.isFinite(raw)&&raw>=0&&raw<360)return raw;
+  const names={norte:0,nordeste:45,leste:90,sudeste:135,sul:180,sudoeste:225,oeste:270,noroeste:315};
+  return names[String(p.sentido||'').trim().toLowerCase()] ?? null;
+}
+export function limiteRadar(value){
+  const match=typeof value==='number'?String(value).match(/^\d+$/):String(value||'').trim().match(/^(\d+)\s*(?:km\/?h)?$/i);
+  const n=match?Number(match[1]||match[0]):NaN;
+  return Number.isFinite(n)&&n>=10&&n<=140?n:null;
+}
+function segmentsOf(line){
+  let running=0;
+  return line.slice(1).map((b,i)=>{
+    const a=line[i], length=pointDistance(a,b);
+    const s={a,b,length,along:running,heading:compassHeading(a,b)};running+=length;return s;
+  }).filter(s=>s.length>.01);
+}
+function projectSegment(point,s){
+  const [vx,vy]=localVector(s.a,s.b),[wx,wy]=localVector(s.a,point);
+  const t=Math.max(0,Math.min(1,(wx*vx+wy*vy)/(vx*vx+vy*vy)));
+  return {distance:Math.hypot(wx-t*vx,wy-t*vy),along:s.along+t*s.length,heading:s.heading};
+}
+export class RadarRouteEngine {
+  constructor(features=[]){this.features=features;this.segments=[];this.candidates=[];this.previous=null;this.lastTarget=null;}
+  setFeatures(features){this.features=features;this.indexRadars();}
+  setRoute(line){
+    this.segments=Array.isArray(line)&&line.length>1&&line.every(validCoord)?segmentsOf(line):[];
+    this.previous=null;this.lastTarget=null;this.indexRadars();
+  }
+  indexRadars(){
+    this.candidates=[];
+    if(!this.segments.length)return;
+    for(const f of this.features){
+      const coord=f?.geometry?.coordinates,p=f?.properties||{};
+      if(f?.geometry?.type!=='Point'||!validCoord(coord))continue;
+      if(p.desativacao||p.removido_em||/^(inativo|desativado|removido|suspenso)$/i.test(p.status_operacional||''))continue;
+      const uncertainty=p.precisao_metros;
+      if(typeof uncertainty==='number'&&uncertainty>RADAR_CORRIDOR)continue;
+      if(/estimad|candidat|aproximad/i.test(p.qualidade_gps||''))continue;
+      const direction=radarHeading(p), speed=limiteRadar(p.velocidade);
+      const occurrences=[];
+      for(const s of this.segments){
+        // Quick bounding box before projecting; no GPS is sent anywhere.
+        if(coord[0]<Math.min(s.a[0],s.b[0])-.0004||coord[0]>Math.max(s.a[0],s.b[0])+.0004||coord[1]<Math.min(s.a[1],s.b[1])-.0003||coord[1]>Math.max(s.a[1],s.b[1])+.0003)continue;
+        if(direction!==null&&angleDifference(direction,s.heading)>65)continue;
+        const hit=projectSegment(coord,s);
+        if(hit.distance>RADAR_CORRIDOR)continue;
+        const adjacent=occurrences.find(x=>Math.abs(x.along-hit.along)<45);
+        if(adjacent){if(hit.distance<adjacent.distance)Object.assign(adjacent,hit);}else occurrences.push(hit);
+      }
+      for(const hit of occurrences){
+        const key=`${coord[0].toFixed(5)},${coord[1].toFixed(5)}:${Math.round(hit.heading/45)}`;
+        this.candidates.push({...hit,feature:f,key,speed,directionKnown:direction!==null});
+      }
+    }
+    this.candidates.sort((a,b)=>a.along-b.along);
+  }
+  resetPosition(){this.previous=null;this.lastTarget=null;}
+  update(position,now=Date.now()){
+    const c=position?.coords,t=position?.timestamp;
+    if(!c||!Number.isFinite(t)||now-t>10000||t>now+2000)return {state:'stale'};
+    const point=[c.longitude,c.latitude],accuracy=c.accuracy;
+    if(!validCoord(point)||!Number.isFinite(accuracy)||accuracy<0||accuracy>GPS_CORRIDOR)return {state:'accuracy'};
+    if(!this.segments.length)return {state:'no-route'};
+    let previous=this.previous;
+    if(previous&&t<=previous.t)return {state:'old'};
+    if(previous&&t-previous.t>15000)previous=null;
+    const travelled=previous?pointDistance(previous.point,point):0;
+    if(previous&&travelled>Math.max(100,(t-previous.t)/1000*85))return {state:'jump'};
+    let heading=typeof c.heading==='number'&&Number.isFinite(c.heading)&&c.heading>=0&&c.heading<360&&!(typeof c.speed==='number'&&c.speed<2)?c.heading:null;
+    if(heading===null&&previous&&travelled>Math.max(10,accuracy,previous.accuracy))heading=compassHeading(previous.point,point);
+    const hits=this.segments.map(s=>projectSegment(point,s)).filter(h=>h.distance<=GPS_CORRIDOR&&
+      (heading===null||angleDifference(heading,h.heading)<=75)&&
+      (!previous||(h.along>=previous.along-40&&h.along<=previous.along+travelled+100)));
+    hits.sort((a,b)=>a.distance-b.distance);
+    if(!hits.length)return {state:'off-route'};
+    const best=hits[0];
+    // At overlapping stretches, do not guess a distant lap of the route.
+    if(hits.some(h=>Math.abs(h.along-best.along)>120&&h.distance<=best.distance+3)&&!previous)return {state:'ambiguous'};
+    this.previous={point,t,accuracy,along:best.along};
+    const next=this.candidates.find(r=>r.along-best.along>=-15&&r.along-best.along<=RADAR_LOOKAHEAD);
+    const passed=this.lastTarget&&this.lastTarget.along-best.along < -20;
+    if(next){
+      this.lastTarget=next;
+      const distance=Math.max(0,next.along-best.along);
+      const speed=typeof c.speed==='number'&&Number.isFinite(c.speed)&&c.speed>=0?c.speed:0;
+      return {state:'radar',...next,meters:distance,announce:distance<=Math.max(350,Math.min(850,speed*20))};
+    }
+    if(passed){this.lastTarget=null;return {state:'passed'};}
+    return {state:'none'};
+  }
+}
+
+export function iniciarAlertasRadares(){
+  const engine=new RadarRouteEngine();
+  const box=document.createElement('section');box.id='radar-alert';box.hidden=true;
+  box.setAttribute('aria-label','Aviso de radar cadastrado');
+  const style=document.createElement('style');
+  style.textContent=`
+    #radar-alert[hidden],#radar-alert .radar-limit[hidden]{display:none!important}
+    #radar-alert{position:absolute;z-index:23;right:12px;bottom:calc(133px + env(safe-area-inset-bottom));width:min(310px,calc(100% - 120px));border:1px solid #d3a35f;border-radius:17px;background:rgba(19,26,37,.97);color:#fff;padding:12px;box-shadow:0 6px 24px #0008;font:13px system-ui;pointer-events:auto}
+    #radar-alert .radar-row{display:flex;align-items:center;gap:10px}
+    #radar-alert .radar-copy{min-width:0;flex:1}#radar-alert strong{display:block;font-size:18px;line-height:1.2}
+    #radar-alert .radar-limit{border:4px solid #e74848;border-radius:50%;width:59px;height:59px;flex:0 0 59px;background:white;color:#152030;display:grid;place-content:center;text-align:center;font-size:23px;font-weight:850;line-height:1}
+    #radar-alert .radar-limit small{font-size:9px;font-weight:600;margin-top:3px}
+    #radar-alert p{margin:5px 0 0;color:#cbd5e1;font-size:11px;line-height:1.35}
+    #radar-alert .radar-source{font-size:10px;color:#a9bacd}
+    #radar-alert button{min-height:38px;margin-top:8px;border:1px solid #65788c;border-radius:8px;background:#25374c;color:#fff;padding:6px 10px;font:600 11px system-ui;cursor:pointer}
+    #radar-alert button:focus-visible{outline:3px solid #fff}
+    @media(max-height:500px){#radar-alert{bottom:calc(115px + env(safe-area-inset-bottom));padding:8px;width:260px}#radar-alert .radar-source{display:none}}
+  `;
+  document.head.append(style);
+  const row=document.createElement('div');row.className='radar-row';
+  const copy=document.createElement('div');copy.className='radar-copy';
+  const title=document.createElement('strong');title.setAttribute('role','status');title.setAttribute('aria-live','polite');
+  const detail=document.createElement('p');
+  const limit=document.createElement('div');limit.className='radar-limit';
+  const number=document.createElement('span'),unit=document.createElement('small');unit.textContent='km/h';limit.append(number,unit);
+  copy.append(title,detail);row.append(copy,limit);
+  const source=document.createElement('p');source.className='radar-source';
+  const sound=document.createElement('button');sound.type='button';sound.textContent='Ativar aviso por voz';sound.setAttribute('aria-pressed','false');
+  box.append(row,source,sound);document.querySelector('.maparea').append(box);
+  let active=false,loaded=false,loadError=false,lastFix=null,soundOn=false,passedUntil=0,spoken=new Map(),lastSpoken=0,lastRender='';
+  const speechAvailable='speechSynthesis' in window&&'SpeechSynthesisUtterance' in window;
+  sound.disabled=!speechAvailable;if(!speechAvailable)sound.textContent='Voz indisponível';
+  function cancelVoice(){if(soundOn&&speechAvailable)window.speechSynthesis.cancel();}
+  function say(text){
+    if(!soundOn||!speechAvailable||document.hidden)return;
+    const message=new SpeechSynthesisUtterance(text);message.lang='pt-BR';message.rate=1;
+    window.speechSynthesis.cancel();window.speechSynthesis.speak(message);
+  }
+  sound.addEventListener('click',()=>{
+    if(soundOn)cancelVoice();soundOn=!soundOn;
+    sound.textContent=soundOn?'Silenciar voz':'Ativar aviso por voz';sound.setAttribute('aria-pressed',String(soundOn));
+    if(soundOn){say('Avisos de radar ativados.');lastSpoken=Date.now();}
+  });
+  function render(result){
+    if(!active){box.hidden=true;return;}
+    box.hidden=false;
+    if(!loaded)result={state:loadError?'data-error':'loading'};
+    const messages={loading:'Carregando radares…','data-error':'Base de radares indisponível',waiting:'Aguardando GPS',stale:'GPS sem sinal recente',accuracy:'GPS impreciso',jump:'Conferindo posição GPS','off-route':'Fora da rota calculada',ambiguous:'Conferindo trecho da rota','no-route':'Calcule uma rota',none:'Sem radar cadastrado próximo',passed:'Radar ultrapassado'};
+    if(result.state==='old')return;
+    if(result.state==='passed')passedUntil=Date.now()+2500;
+    if(result.state==='none'&&Date.now()<passedUntil)result={state:'passed'};
+    const isRadar=result.state==='radar';
+    const distance=isRadar?Math.max(0,Math.ceil(result.meters/10)*10):0;
+    const heading=isRadar?(distance<=10?'Radar próximo':`Radar em ${distance} m`):(messages[result.state]||'Aguardando GPS');
+    const signature=[result.state,result.key,distance,result.speed].join('|');
+    if(signature!==lastRender){
+      lastRender=signature;title.textContent=heading;limit.hidden=!isRadar;
+      number.textContent=result.speed===null?'—':String(result.speed??'—');
+      limit.setAttribute('aria-label',result.speed===null?'Limite não informado':`Limite cadastrado: ${result.speed} quilômetros por hora`);
+      detail.textContent=isRadar?(result.speed===null?'Limite não informado':`Velocidade máxima cadastrada: ${result.speed} km/h`):
+        result.state==='none'?'Nenhum ponto elegível nos próximos 1.000 m. Cobertura incompleta.':
+        result.state==='data-error'?'Não foi possível carregar os dados. Reabra a página para tentar novamente.':
+        result.state==='passed'?'Seguindo para o próximo ponto.':'O aviso será atualizado com uma posição confiável na rota.';
+      source.textContent=isRadar?`${result.feature.properties.fonte||'Cadastro público'}${result.directionKnown?'':' · Sentido não confirmado'}`:'Dados: CET-SP · Bunda de Urso / Challado';
+    }
+    if(!isRadar){cancelVoice();return;}
+    const now=Date.now();
+    if(soundOn&&result.announce&&now-(spoken.get(result.key)||0)>120000&&now-lastSpoken>7000&&!document.hidden){
+      say(`Radar em ${distance} metros. ${result.speed===null?'Limite não informado.':`Velocidade máxima cadastrada, ${result.speed} quilômetros por hora.`}`);
+      spoken.set(result.key,now);lastSpoken=now;
+    }
+  }
+  async function load(){
+    for(const url of ['data/radares_consolidados.geojson','data/radares_ativos.geojson']){
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+      try{
+        const response=await fetch(url,{cache:'no-store',signal:controller.signal});
+        if(!response.ok)throw new Error('HTTP '+response.status);
+        const data=await response.json();
+        if(data.type!=='FeatureCollection'||!Array.isArray(data.features)||!data.features.length)throw new Error('Base inválida');
+        engine.setFeatures(data.features);loaded=true;
+        engine.resetPosition();render(lastFix?engine.update(lastFix):{state:'waiting'});return;
+      }catch(e){/* Try the CET fallback, without inventing points. */}finally{clearTimeout(timer);}
+    }
+    loadError=true;render({state:'data-error'});
+  }
+  load();
+  const timer=setInterval(()=>{
+    if(active&&lastFix&&Date.now()-lastFix.timestamp>10000){engine.resetPosition();render({state:'stale'});}
+  },1500);
+  return {
+    setRoute(line){engine.setRoute(line);passedUntil=0;lastRender='';render({state:'waiting'});},
+    start(){active=true;lastFix=null;engine.resetPosition();render({state:'waiting'});},
+    stop(){active=false;lastFix=null;engine.resetPosition();cancelVoice();box.hidden=true;},
+    unavailable(){render({state:'stale'});},
+    update(position){if(!active)return;const result=engine.update(position);if(result.state!=='old')lastFix=position;render(result);}
+  };
 }
