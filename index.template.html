@@ -238,7 +238,7 @@
     <div class="listhead"><b id="list-title">Municípios</b><span id="list-count">—</span></div>
     <div class="list" id="items" aria-live="polite"></div>
     <button id="more" class="load-more" type="button" hidden>Mostrar mais</button>
-    <p class="hint">Use os filtros para comparar municípios e vias. O mapa mostra concentrações aproximadas por cidade, não a posição de cada equipamento.</p>
+    <p class="hint">Use os filtros para comparar municípios e vias. O mapa mostra zonas geográficas aproximadas de 5 km, não posições de equipamentos.</p>
     </section>
     <section id="navigation-panel" aria-label="Planejamento de trajetos">
       <h2 class="nav-heading">Planejar um trajeto</h2>
@@ -285,8 +285,8 @@
 <main class="map-section" aria-label="Mapa de São Paulo com acompanhamento opcional por GPS">
   <div id="map" aria-label="Mapa interativo de São Paulo"></div>
   <div class="map-fallback" id="map-fallback"><div class="inner"><strong>Carregando mapa…</strong><p>Se o mapa não carregar, as estatísticas e a pesquisa continuam disponíveis.</p></div></div>
-  <div class="topbar"><div class="top-info"><div class="big" id="map-heading">São Paulo · visão geral</div><div class="small" id="map-subheading">Dados municipais agregados · 2026</div></div><button class="top-control" id="reset-map" type="button">Ver todo o estado</button></div>
-  <div class="map-note"><div class="dots"><span class="dot"></span><strong>Concentração por município</strong></div><p>Círculos representam contagens agregadas. A posição é aproximada e não corresponde a um radar específico.</p></div>
+  <div class="topbar"><div class="top-info"><div class="big" id="map-heading">São Paulo · visão geral</div><div class="small" id="map-subheading">Zonas aproximadas de 5 km · SP</div></div><button class="top-control" id="reset-map" type="button">Ver todo o estado</button></div>
+  <div class="map-note"><div class="dots"><span class="dot"></span><strong>Concentração por região</strong></div><p>As bolhas resumem registros em áreas de aproximadamente 5 km. Não representam câmeras, coordenadas exatas ou equipamentos em operação.</p></div>
   <div class="analytics" id="analytics"><h3>Velocidades cadastradas no conjunto</h3><div id="speed-bars"></div><p class="sub">São valores associados a equipamentos, não limites gerais de cada rodovia.</p></div>
   <div class="quiet-logo" aria-hidden="true"><span class="signal"></span> ULTRON <strong>SP</strong></div>
   <section id="speed-hud" class="speed-hud" aria-label="Velocidade por GPS" role="status">
@@ -343,19 +343,19 @@
    $('cet-audit-note').textContent=`De ${fmt(cetAudit.cet_sem_desativacao)} linhas CET sem data de desativação, ${fmt(cetAudit.cet_sem_correspondencia_proxima)} não encontram registro a até 60 m na base atual. São candidatos para auditoria, não radares confirmados. ${fmt(cetAudit.cet_com_desativacao)} linhas históricas não foram somadas aos ${fmt(DATA.total)} registros principais.`;
  }
 
- let tab='cities',query='', selected=null,shown=20,map=null,maplibregl=null,popup=null;
+ let tab='cities',query='', selected=null,shown=20,map=null,maplibregl=null,popup=null,zonesData=null;
  const speedRows=DATA.speed_distribution.filter(d=>d.speed!=='Não informado').sort((a,b)=>b.count-a.count);
  for(const s of speedRows){const el=document.createElement('div');el.className='speed-row';
   const unit=document.createElement('span');unit.textContent=s.speed+' km/h';const bar=document.createElement('div');bar.className='bar';const fill=document.createElement('span');fill.style.width=`${100*s.count/speedRows[0].count}%`;bar.append(fill);
   const n=document.createElement('b');n.textContent=fmt(s.count);el.append(unit,bar,n);$('speed-bars').append(el);}
  function selectionData(){if(!selected)return null;return (selected.type==='cities'?DATA.cities:DATA.roads).find(x=>x.name===selected.name)||null;}
- function updateSelected(){const d=selectionData(),section=$('selected');if(!d){section.hidden=true;$('map-heading').textContent='São Paulo · visão geral';$('map-subheading').textContent=fmt(DATA.total)+' registros · '+fmt(DATA.city_count)+' municípios';return;}
+ function updateSelected(){const d=selectionData(),section=$('selected');if(!d){section.hidden=true;$('map-heading').textContent='São Paulo · visão geral';$('map-subheading').textContent=fmt(DATA.total)+' registros · '+fmt(DATA.city_count)+' municípios · regiões aproximadas';return;}
   section.hidden=false;$('selection-type').textContent=selected.type==='cities'?'Município':'Via cadastrada';$('selection-title').textContent=d.name;
   const p=selected.type==='cities'?
    `${fmt(d.count)} registros, dos quais ${fmt(d.with_speed)} com velocidade cadastrada. Vias mais frequentes: ${d.roads.slice(0,3).map(x=>x.name+' ('+fmt(x.count)+')').join('; ')}.`:
    `${fmt(d.count)} registros distribuídos por ${fmt(d.cities.length)} municípios. Maiores concentrações: ${d.cities.slice(0,4).map(x=>x.name+' ('+fmt(x.count)+')').join('; ')}.`;
   $('selection-details').textContent=p;$('map-heading').textContent=d.name;
-  $('map-subheading').textContent=`${fmt(d.count)} registros na seleção · pontos agrupados por município`;}
+  $('map-subheading').textContent=`${fmt(d.count)} registros na seleção · zonas aproximadas de 5 km`;}
  function matches(){const data=tab==='cities'?DATA.cities:DATA.roads;return data.filter(d=>norm(d.name).includes(norm(query)));}
  function renderList(){const results=matches();$('list-title').textContent=tab==='cities'?'Municípios':'Vias';$('list-count').textContent=fmt(results.length)+' encontrados';$('items').replaceChildren();
   if(!results.length){const m=document.createElement('p');m.className='hint';m.textContent='Nenhum resultado. Tente uma pesquisa mais curta.';$('items').append(m);}
@@ -368,17 +368,32 @@
   }
   $('more').hidden=results.length<=shown;
  }
- function makeFeatures(){const roadCityCounts=selected?.type==='roads'?new Map((selectionData()?.cities||[]).map(c=>[c.name,c.count])):null;
-  return {type:'FeatureCollection',features:DATA.cities.filter(c=>c.lat!==null&&c.lon!==null).map(c=>({type:'Feature',geometry:{type:'Point',coordinates:[c.lon,c.lat]},properties:{name:c.name,count:c.count,matchCount:roadCityCounts?roadCityCounts.get(c.name)||0:c.count,selected:selected?.type==='cities'&&selected?.name===c.name?1:0}}))};}
- function updateMap(){if(!map||!map.getSource('cities'))return;map.getSource('cities').setData(makeFeatures());}
- function selectItem(type,name){selected={type,name};updateSelected();renderList();updateMap();const d=selectionData();if(!map||!d)return;
-  if(type==='cities'&&Number.isFinite(d.lon)&&Number.isFinite(d.lat)){map.flyTo({center:[d.lon,d.lat],zoom:9.2,essential:true});}
-  else if(type==='roads'){
-   const names=new Set(d.cities.map(c=>c.name));const matches=DATA.cities.filter(c=>names.has(c.name)&&c.lat!==null&&c.lon!==null);
-   if(matches.length>1){let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;for(const c of matches){minX=Math.min(minX,c.lon);maxX=Math.max(maxX,c.lon);minY=Math.min(minY,c.lat);maxY=Math.max(maxY,c.lat);}map.fitBounds([[minX-.1,minY-.1],[maxX+.1,maxY+.1]],{padding:70,maxZoom:10,essential:true});}
-   else if(matches.length)map.flyTo({center:[matches[0].lon,matches[0].lat],zoom:9,essential:true});
-  }
+ // O conjunto geográfico é uma grade de 5 km, sem coordenadas individuais de fiscalização.
+ function makeFeatures(){
+   const features=(zonesData?.features||[]).map(f=>{
+     const count=!selected?f.properties.count:
+       Number((selected.type==='cities'?f.properties.cities:f.properties.roads)?.[selected.name]||0);
+     return count>0?{type:'Feature',geometry:f.geometry,properties:{count,main_city:f.properties.main_city,area_km:5}}:null;
+   }).filter(Boolean);
+   return {type:'FeatureCollection',features};
  }
+ function updateMap(){if(!map||!map.getSource('zones'))return;map.getSource('zones').setData(makeFeatures());}
+ function zoneVisibility(){
+   if(!map||!map.getLayer('zone-circles'))return;
+   const visible=document.querySelector('.shell')?.classList.contains('explore-mode')?'visible':'none';
+   for(const id of ['zone-halos','zone-circles','zone-counts'])map.setLayoutProperty(id,'visibility',visible);
+ }
+ function fitZoneSelection(){
+   if(!map)return;
+   const features=makeFeatures().features;
+   if(!features.length)return;
+   if(features.length===1){map.flyTo({center:features[0].geometry.coordinates,zoom:10.5,essential:true});return;}
+   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+   for(const f of features){const [x,y]=f.geometry.coordinates;minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);}
+   map.fitBounds([[minX-.03,minY-.03],[maxX+.03,maxY+.03]],{padding:75,maxZoom:11,essential:true});
+ }
+ function selectItem(type,name){selected={type,name};updateSelected();renderList();updateMap();if(zonesData)fitZoneSelection();}
+
  $('lookup').addEventListener('input',e=>{query=e.target.value;shown=20;renderList();});
  $('tab-cities').addEventListener('click',()=>switchTab('cities'));$('tab-roads').addEventListener('click',()=>switchTab('roads'));
  function switchTab(next){tab=next;shown=20;for(const key of ['cities','roads']){$('tab-'+key).classList.toggle('active',key===next);$('tab-'+key).setAttribute('aria-pressed',String(key===next));}renderList();}
@@ -393,14 +408,27 @@
    map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
    map.on('load',()=>{
      $('map-fallback').hidden=true;
-     map.addSource('cities',{type:'geojson',data:makeFeatures()});
-     map.addLayer({id:'city-halos',type:'circle',source:'cities',paint:{'circle-radius':['interpolate',['linear'],['get','count'],1,8,20,14,100,23,887,37], 'circle-color':'#60ddc6','circle-opacity':['case',['>', ['get','matchCount'],0],0.13,0.025],'circle-stroke-color':'#67e9d6','circle-stroke-opacity':0}});
-     map.addLayer({id:'city-circles',type:'circle',source:'cities',paint:{'circle-radius':['interpolate',['linear'],['get','count'],1,4,20,7,100,12,887,23], 'circle-color':['case',['==',['get','selected'],1],'#ffcf84','#4ab5a7'], 'circle-opacity':['case',['>', ['get','matchCount'],0],0.95,0.12], 'circle-stroke-width':1.3,'circle-stroke-color':'#d3fffb'}});
-     map.addLayer({id:'city-counts',type:'symbol',source:'cities',minzoom:7.6,layout:{'text-field':['to-string',['get','count']],'text-size':10,'text-font':['Noto Sans Regular'],'text-allow-overlap':false},paint:{'text-color':'#eafffa','text-halo-color':'#07111c','text-halo-width':1.5}});
-     map.on('mouseenter','city-circles',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','city-circles',()=>map.getCanvas().style.cursor='');
-     map.on('click','city-circles',e=>{if(window.__ultronNavMapSelection)return;const f=e.features?.[0];if(!f)return;const name=f.properties.name;selectItem('cities',name);
-       if(popup)popup.remove();const el=document.createElement('div');const a=document.createElement('div');a.className='popup-city';a.textContent=name;const b=document.createElement('div');b.className='popup-count';b.textContent=fmt(f.properties.count)+' registros agregados';el.append(a,b);
-       popup=new maplibregl.Popup({offset:18}).setLngLat(f.geometry.coordinates).setDOMContent(el).addTo(map);});
+     map.addSource('zones',{type:'geojson',data:makeFeatures()});
+     map.addLayer({id:'zone-halos',type:'circle',source:'zones',layout:{visibility:'none'},paint:{'circle-radius':['interpolate',['linear'],['get','count'],1,9,20,18,100,29],'circle-color':'#60ddc6','circle-opacity':0.12}});
+     map.addLayer({id:'zone-circles',type:'circle',source:'zones',layout:{visibility:'none'},paint:{'circle-radius':['interpolate',['linear'],['get','count'],1,5,20,10,100,20],'circle-color':'#4ab5a7','circle-opacity':0.91,'circle-stroke-width':1.2,'circle-stroke-color':'#d3fffb'}});
+     map.addLayer({id:'zone-counts',type:'symbol',source:'zones',minzoom:9,layout:{visibility:'none','text-field':['to-string',['get','count']],'text-size':10,'text-font':['Noto Sans Regular'],'text-allow-overlap':false},paint:{'text-color':'#eafffa','text-halo-color':'#07111c','text-halo-width':1.5}});
+     map.on('mouseenter','zone-circles',()=>{if(document.querySelector('.shell')?.classList.contains('explore-mode'))map.getCanvas().style.cursor='pointer';});
+     map.on('mouseleave','zone-circles',()=>map.getCanvas().style.cursor='');
+     map.on('click','zone-circles',e=>{
+       if(window.__ultronNavMapSelection||!document.querySelector('.shell')?.classList.contains('explore-mode'))return;
+       const f=e.features?.[0];if(!f)return;
+       if(popup)popup.remove();const el=document.createElement('div');const a=document.createElement('div');a.className='popup-city';a.textContent='Área aproximada de 5 km';
+       const b=document.createElement('div');b.className='popup-count';b.textContent=fmt(f.properties.count)+' registros nesta região · não é a localização de um radar';
+       el.append(a,b);popup=new maplibregl.Popup({offset:14}).setLngLat(f.geometry.coordinates).setDOMContent(el).addTo(map);
+     });
+     new MutationObserver(zoneVisibility).observe(document.querySelector('.shell'),{attributes:true,attributeFilter:['class']});
+     zoneVisibility();
+     fetch('./data/sp_zonas.geojson',{cache:'no-store'}).then(r=>{
+       if(!r.ok)throw Error('HTTP '+r.status);return r.json();
+     }).then(d=>{
+       if(d.type!=='FeatureCollection'||!Array.isArray(d.features))throw Error('GeoJSON inválido');
+       zonesData=d;updateMap();if(selected)fitZoneSelection();
+     }).catch(err=>{console.warn('Mapa regional:',err);$('map-subheading').textContent='As zonas geográficas não foram carregadas';});
      if(document.querySelector('.shell')?.classList.contains('nav-active'))map.jumpTo({center:[-46.65,-23.55],zoom:10});
      else fitState();
      window.dispatchEvent(new CustomEvent('ultron:mapready',{detail:{map,maplibregl}}));
