@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - index.html
+      - navegacao.js
       - data/sp_dashboard.json
       - .github/workflows/atualizar.yml
 
@@ -32,9 +33,11 @@ jobs:
         shell: bash
         run: |
           test -s index.html
+          test -s navegacao.js
           test -s data/sp_dashboard.json
           mkdir -p publicar/data
           cp index.html publicar/index.html
+          cp navegacao.js publicar/navegacao.js
           cp data/sp_dashboard.json publicar/data/sp_dashboard.json
           touch publicar/.nojekyll
       - name: Configurar Pages
