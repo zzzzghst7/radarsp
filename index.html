@@ -17,10 +17,45 @@
 .map-section{min-height:0;position:relative;background:radial-gradient(ellipse at 40% 40%,#153342,#0c1725 65%);overflow:hidden}#map{position:absolute;inset:0}.map-fallback{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;color:#aec9d8;text-align:center;padding:20px}.map-fallback .inner{border:1px solid #345366;background:#0f2230ef;border-radius:12px;padding:18px;max-width:310px;font-size:12px;line-height:1.7}.map-fallback[hidden]{display:none!important}
 .topbar{position:absolute;z-index:2;top:20px;left:20px;right:20px;display:flex;align-items:flex-start;justify-content:space-between;pointer-events:none;gap:10px}.top-info,.top-control{pointer-events:auto;background:#101e2df0;border:1px solid #355166;box-shadow:0 10px 28px #04132088;border-radius:13px;padding:13px 16px}.top-info .big{font-size:13px;font-weight:850}.top-info .small{font-size:11px;color:#9fbcce;margin-top:4px;line-height:1.4}.top-control{border-radius:10px;padding:9px 12px;color:#c5eff0;font-size:11px;font-weight:800}.top-control:hover{background:#1c3c45}
 .map-note{position:absolute;z-index:3;bottom:21px;left:20px;max-width:380px;border:1px solid #355267;border-radius:12px;background:#102031e8;padding:12px 14px;box-shadow:0 7px 25px #06172588}.map-note strong{font-size:11px;display:block;margin-bottom:5px;color:#e6f9f8}.map-note p{font-size:10.5px;line-height:1.55;margin:0;color:#a4c0d1}.map-note .dots{display:flex;align-items:center;gap:7px;margin-bottom:6px;color:#c9dce8;font-size:10px}.dot{display:inline-block;width:10px;height:10px;background:var(--teal);border:2px solid #c9fff1;border-radius:50%}.maplibregl-ctrl-bottom-right{bottom:4px}.maplibregl-ctrl-attrib{font-size:10px!important}.maplibregl-popup-content{border:1px solid #48697c;background:#112b3c;color:#fff;border-radius:11px;padding:12px 15px;box-shadow:0 10px 27px #05121c99}.maplibregl-popup-close-button{color:#fff;font-size:18px;padding:3px 8px}.popup-city{font-size:13px;font-weight:800;margin-right:12px}.popup-count{font-size:11px;color:#a9d9d6;margin-top:5px}
-.analytics{position:absolute;z-index:2;right:20px;bottom:20px;background:#102030f2;border:1px solid #355267;border-radius:14px;width:225px;padding:15px 14px;box-shadow:0 7px 25px #06172588}.analytics h3{font-size:11px;margin:0 0 12px;color:#edf9fa}.speed-row{display:grid;grid-template-columns:49px 1fr 30px;align-items:center;gap:7px;margin:9px 0;font-size:10px;color:#aac6d4;font-variant-numeric:tabular-nums;white-space:nowrap}.speed-row .bar{height:6px;background:#30495c;border-radius:99px;overflow:hidden}.speed-row .bar span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#329d9a,var(--teal))}.speed-row b{text-align:right;font-size:10px;font-weight:700;color:#eaf6fa}.analytics .sub{font-size:10px;line-height:1.5;color:#9db4c5;margin:10px 0 0}
+.analytics{position:absolute;z-index:2;right:20px;bottom:20px;background:#102030f2;border:1px solid #355267;border-radius:14px;width:225px;padding:15px 14px;box-shadow:0 7px 25px #06172588}.analytics h3{font-size:11px;margin:0 0 12px;color:#edf9fa}.speed-row{display:grid;grid-template-columns:59px 1fr 32px;align-items:center;gap:7px;margin:9px 0;font-size:10px;color:#aac6d4;font-variant-numeric:tabular-nums;white-space:nowrap}.speed-row .bar{height:6px;background:#30495c;border-radius:99px;overflow:hidden}.speed-row .bar span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#329d9a,var(--teal))}.speed-row b{text-align:right;font-size:10px;font-weight:700;color:#eaf6fa}.analytics .sub{font-size:10px;line-height:1.5;color:#9db4c5;margin:10px 0 0}
 @media(max-width:950px){:root{--w:320px}.analytics{display:none}}@media(max-width:700px){.shell{display:flex;flex-direction:column;height:auto;min-height:100dvh}.map-section{order:1;height:57dvh;min-height:360px;max-height:570px}.sidebar{order:2;min-height:550px;overflow:visible;border-top:1px solid #355469;border-right:0}.brand{padding:19px 18px}.brand h1{font-size:23px}.kpis{margin-top:13px}.sidebar-body{overflow:visible}.topbar{top:11px;left:11px;right:11px}.top-info{padding:10px 12px}.top-info .small{font-size:10px}.top-control{padding:9px}.map-note{bottom:14px;left:11px;max-width:min(290px,calc(100% - 25px));padding:9px 11px}.sidebar-foot{padding-bottom:30px}.list{grid-template-columns:1fr 1fr}.place{min-height:61px}.place .label{font-size:11px}.selected{margin:10px 0}}
 @media(max-width:390px){.list{grid-template-columns:1fr}.map-note{max-width:240px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Navegação V7 — mesma linguagem visual do painel. */
+.shell.nav-active .analytics,.shell.nav-active .map-note{display:none}
+[hidden]{display:none!important}
+.mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:0 0 20px}
+.mode-tabs button{border-radius:10px;border:1px solid #365568;background:#152839;color:#a9ccdb;padding:12px 6px;font-size:12px;font-weight:800}
+.mode-tabs button.active{background:#1d5054;color:#effffb;border-color:#6de1ce}
+.nav-heading{font-size:16px;font-weight:850;margin:8px 0 6px;color:#edfefb}
+.nav-intro{font-size:11px;color:#9fb9c8;line-height:1.65;margin:0 0 19px}
+.nav-label{font-size:12px;font-weight:800;margin:15px 0 7px;display:block;color:#dbeef3}
+.nav-search-line{display:flex;gap:7px;align-items:stretch}
+.nav-search-line input{min-width:0;width:100%;background:#132739;border:1px solid #3b5a6d;border-radius:9px;color:#f7ffff;padding:11px 10px;font-size:12px}
+.nav-search-line button,.nav-small{border:1px solid #486779;background:#1c4050;color:#defaf5;border-radius:9px;padding:10px 12px;font-weight:750;font-size:11px;white-space:nowrap}
+.nav-tools{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 4px}
+.nav-tools button{padding:8px 9px;border:1px solid #375468;background:#152b3a;color:#a9dacf;border-radius:9px;font-size:10px}
+.nav-tools button.active{color:#ffce86;border-color:#ffce86}
+.nav-search-results{border:1px solid #385a6a;background:#102435;border-radius:10px;margin:8px 0 5px;max-height:245px;overflow-y:auto;padding:5px}
+.nav-search-item,.nav-search-more{display:block;text-align:left;width:100%;padding:9px 10px;color:#e5f7f7;background:transparent;border:0;border-bottom:1px solid #274253;font-size:11px;line-height:1.5}
+.nav-search-item:hover,.nav-search-more:hover{background:#1a3b4b}
+.nav-search-more{color:#6de1ce;font-weight:800;border-bottom:0}
+.nav-search-note{font-size:11px;color:#a4bbca;padding:0 10px}
+.nav-actions{display:flex;gap:7px;margin-top:18px}.nav-primary{flex:1;background:#6de1ce;color:#082b31;border:0;border-radius:11px;font-size:12px;padding:13px 10px;font-weight:900}
+.nav-primary:disabled{opacity:.38;cursor:not-allowed}.nav-secondary{border:1px solid #405c6e;background:#192c3d;color:#c0dbe9;border-radius:11px;padding:11px;font-size:11px;font-weight:750}.nav-secondary:disabled{opacity:.4}
+.nav-status{padding:10px 12px;border:1px solid #375a6a;background:#11283a;border-radius:9px;font-size:11px;color:#cce8eb;margin-top:12px;line-height:1.55}
+.nav-status[data-kind=warning]{border-color:#a67843;color:#ffdaa7}.nav-status[data-kind=error]{border-color:#9b5263;color:#f7b4ba}
+.nav-result{border:1px solid #427d79;border-radius:13px;margin-top:18px;background:linear-gradient(135deg,#1b4547,#142738);padding:14px 13px}
+.nav-result h3{font-size:13px;margin:0 0 10px;color:#dffbf6}
+.nav-metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}.nav-metric{padding:12px;background:#112c38;border:1px solid #375566;border-radius:9px}
+.nav-metric strong{display:block;font-size:21px;color:#f5fffb;font-variant-numeric:tabular-nums}.nav-metric span{font-size:10px;color:#9dbbc7}
+.nav-alt-list{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.nav-alt{font-size:10px;padding:8px 9px;background:#1a3443;color:#bcd1df;border:1px solid #446376;border-radius:9px}.nav-alt.active{border-color:#72ebd6;color:#e6fff8}
+.nav-steps{list-style:none;padding:0;margin:7px 0;max-height:250px;overflow:auto}.nav-step{display:grid;grid-template-columns:64px 1fr;gap:8px;font-size:11px;padding:10px 3px;border-top:1px solid #37505c;line-height:1.5}.nav-step-distance{color:#70ddca;font-weight:800}
+.nav-help{color:#93aebd;font-size:10px;line-height:1.65;margin-top:12px}.nav-finish-buttons{display:flex;gap:7px;flex-wrap:wrap}
+.nav-map-pin{width:29px;height:29px;border-radius:50%;background:var(--pin-color);display:grid;place-items:center;border:3px solid #052a36;color:#08252e;font-weight:950;font-size:13px;box-shadow:0 3px 14px #00121d99;cursor:default}
+.nav-finish-buttons button.active{border-color:#6de1ce;color:#6de1ce}
+@media(max-width:700px){.mode-tabs{margin-bottom:13px}.nav-intro{margin-bottom:12px}}
 </style>
 </head>
 <body>
@@ -38,6 +73,8 @@
     </div>
   </header>
   <div class="sidebar-body">
+    <div class="mode-tabs" role="group" aria-label="Modo de uso"><button type="button" id="mode-explore" class="active" aria-pressed="true">Explorar dados</button><button type="button" id="mode-navigate" aria-pressed="false">Navegação</button></div>
+    <section id="explore-panel">
     <label class="search-label" for="lookup">Explorar os dados</label>
     <div class="search-shell"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><input id="lookup" type="search" placeholder="Cidade ou nome de via..." autocomplete="off" aria-label="Pesquisar cidade ou via"></div>
     <div class="tabs" role="group" aria-label="Tipo de pesquisa"><button id="tab-cities" type="button" class="active" aria-pressed="true">Municípios</button><button id="tab-roads" type="button" aria-pressed="false">Vias</button></div>
@@ -46,6 +83,29 @@
     <div class="list" id="items" aria-live="polite"></div>
     <button id="more" class="load-more" type="button" hidden>Mostrar mais</button>
     <p class="hint">Use os filtros para comparar municípios e vias. O mapa mostra concentrações aproximadas por cidade, não a posição de cada equipamento.</p>
+    </section>
+    <section id="navigation-panel" hidden aria-label="Planejamento de trajetos">
+      <h2 class="nav-heading">Planejar um trajeto</h2>
+      <p class="nav-intro">Pesquise endereços e lugares ou marque pontos no mapa. Prévia rodoviária, sem dados de trânsito ao vivo.</p>
+      <label class="nav-label" for="nav-origin">A · Origem</label>
+      <div class="nav-search-line"><input id="nav-origin" placeholder="Ex.: Pinheiros, São Paulo" autocomplete="off"><button id="nav-origin-search" type="button">Buscar</button></div>
+      <div class="nav-tools"><button id="nav-gps" type="button">Usar meu GPS</button><button id="nav-origin-pick" type="button">Marcar no mapa</button></div>
+      <div id="nav-origin-results" class="nav-search-results" hidden></div>
+      <label class="nav-label" for="nav-dest">B · Destino</label>
+      <div class="nav-search-line"><input id="nav-dest" placeholder="Ex.: Unicamp, Campinas" autocomplete="off"><button id="nav-dest-search" type="button">Buscar</button></div>
+      <div class="nav-tools"><button id="nav-dest-pick" type="button">Marcar no mapa</button></div>
+      <div id="nav-dest-results" class="nav-search-results" hidden></div>
+      <div class="nav-actions"><button type="button" class="nav-primary" id="nav-route" disabled>Traçar rota</button><button type="button" class="nav-secondary" id="nav-clear" disabled>Limpar</button></div>
+      <div class="nav-status" role="status" aria-live="polite" id="nav-status">Informe uma origem e um destino para começar.</div>
+      <section class="nav-result" id="nav-result" hidden aria-label="Rota calculada">
+        <h3>Resumo do trajeto</h3>
+        <div class="nav-metrics"><div class="nav-metric"><strong id="nav-distance">—</strong><span>Distância</span></div><div class="nav-metric"><strong id="nav-duration">—</strong><span>Tempo estimado</span></div></div>
+        <div id="nav-alt-list" class="nav-alt-list" aria-label="Alternativas de rota"></div>
+        <div class="nav-finish-buttons"><button type="button" class="nav-secondary" id="nav-recenter">Mostrar trajeto</button><button type="button" class="nav-secondary" id="nav-follow">Acompanhar meu GPS</button></div>
+        <h3 style="margin-top:18px">Etapas previstas</h3><ol class="nav-steps" id="nav-steps"></ol>
+      </section>
+      <p class="nav-help">Cálculo por OSRM público e busca de lugares por Photon/OpenStreetMap. GPS opcional e somente com sua permissão. Esta prévia não faz recálculo automático, não considera trânsito em tempo real nem substitui navegação homologada ou sinalização.</p>
+    </section>
   </div>
   <footer class="sidebar-foot">
     <div class="credit"><strong>DADOS ABERTOS · ODbL</strong><span>Snapshot 06/11/2026</span></div>
@@ -71,7 +131,7 @@
  $('stat-total').textContent=fmt(DATA.total);$('stat-cities').textContent=fmt(DATA.city_count);
  $('stat-known').textContent=fmt(DATA.with_speed);$('stat-unknown').textContent=fmt(DATA.without_speed);
  let tab='cities',query='', selected=null,shown=20,map=null,maplibregl=null,popup=null;
- const speedRows=DATA.speed_distribution.filter(d=>d.speed!=='Não informado').sort((a,b)=>b.count-a.count).slice(0,10);
+ const speedRows=DATA.speed_distribution.filter(d=>d.speed!=='Não informado').sort((a,b)=>b.count-a.count);
  for(const s of speedRows){const el=document.createElement('div');el.className='speed-row';
   const unit=document.createElement('span');unit.textContent=s.speed+' km/h';const bar=document.createElement('div');bar.className='bar';const fill=document.createElement('span');fill.style.width=`${100*s.count/speedRows[0].count}%`;bar.append(fill);
   const n=document.createElement('b');n.textContent=fmt(s.count);el.append(unit,bar,n);$('speed-bars').append(el);}
@@ -125,14 +185,16 @@
      map.addLayer({id:'city-circles',type:'circle',source:'cities',paint:{'circle-radius':['interpolate',['linear'],['get','count'],1,4,20,7,100,12,887,23], 'circle-color':['case',['==',['get','selected'],1],'#ffcf84','#4ab5a7'], 'circle-opacity':['case',['>', ['get','matchCount'],0],0.95,0.12], 'circle-stroke-width':1.3,'circle-stroke-color':'#d3fffb'}});
      map.addLayer({id:'city-counts',type:'symbol',source:'cities',minzoom:7.6,layout:{'text-field':['to-string',['get','count']],'text-size':10,'text-font':['Noto Sans Regular'],'text-allow-overlap':false},paint:{'text-color':'#eafffa','text-halo-color':'#07111c','text-halo-width':1.5}});
      map.on('mouseenter','city-circles',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','city-circles',()=>map.getCanvas().style.cursor='');
-     map.on('click','city-circles',e=>{const f=e.features?.[0];if(!f)return;const name=f.properties.name;selectItem('cities',name);
+     map.on('click','city-circles',e=>{if(window.__ultronNavMapSelection)return;const f=e.features?.[0];if(!f)return;const name=f.properties.name;selectItem('cities',name);
        if(popup)popup.remove();const el=document.createElement('div');const a=document.createElement('div');a.className='popup-city';a.textContent=name;const b=document.createElement('div');b.className='popup-count';b.textContent=fmt(f.properties.count)+' registros agregados';el.append(a,b);
        popup=new maplibregl.Popup({offset:18}).setLngLat(f.geometry.coordinates).setDOMContent(el).addTo(map);});
      fitState();
+     window.dispatchEvent(new CustomEvent('ultron:mapready',{detail:{map,maplibregl}}));
    });
    map.on('error',ev=>{if(!map.loaded()&&ev.error){const inner=$('map-fallback').querySelector('.inner');inner.textContent='O mapa não pôde ser carregado. A pesquisa e as estatísticas continuam disponíveis.';}});
  }catch(err){const inner=$('map-fallback').querySelector('.inner');inner.textContent='Mapa indisponível nesta conexão. Você ainda pode explorar os municípios e as vias na lista.';}}
  setupMap();
 })();
 </script>
+<script src="./navegacao.js"></script>
 </body></html>

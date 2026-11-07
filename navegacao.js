@@ -1,0 +1,293 @@
+/* ULTRON SP V7 — planejamento de trajetos. Sem alertas de fiscalização.
+   Geocodificação: Photon (busca explícita), fallback Nominatim sob demanda.
+   Rotas: OSRM público para demonstração. Para produção, contratar backend com SLA.
+*/
+'use strict';
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { map: null, lib: null, origin: null, dest: null, routes: [], selectedRoute: 0,
+                  choosing: null, markers: [], gpsMarker: null, watchId: null, busy: false,
+                  requests: {origin: 0, dest: 0} };
+  const formatKm = m => (m >= 10000 ? (m/1000).toLocaleString('pt-BR',{maximumFractionDigits:0}) : (m/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})) + ' km';
+  const formatDur = secs => { let n = Math.max(1,Math.round(secs/60)); const h=Math.floor(n/60); n %= 60; return h ? `${h} h${n ? ` ${n} min` : ''}` : `${n} min`; };
+  const escapeValue = (str) => String(str??'');
+  const short = (str, max=55) => String(str??'').length>max ? String(str).slice(0,max-1)+'…' : String(str??'');
+  const pause = ms => new Promise(resolve => setTimeout(resolve,ms));
+
+  function status(text, kind='info') {
+    const el=$('nav-status'); el.textContent=text; el.dataset.kind=kind;
+  }
+  function buttonState(){
+    $('nav-route').disabled=!(state.origin&&state.dest)||state.busy;
+    $('nav-clear').disabled=!(state.origin||state.dest||state.routes.length);
+  }
+  function setEndpoint(which, coords, label){
+    if(!Array.isArray(coords)||coords.length<2||!coords.every(Number.isFinite))return;
+    state[which]={coords:[Number(coords[0]),Number(coords[1])],label:escapeValue(label)};
+    $('nav-'+which).value=label;
+    $('nav-'+which+'-results').replaceChildren();
+    $('nav-'+which+'-results').hidden=true;
+    clearRoute();
+    buttonState();
+    drawMarkers();
+    if(state.map)state.map.flyTo({center:coords,zoom:Math.max(11,state.map.getZoom()),essential:true});
+    status((which==='origin'?'Origem':'Destino')+' definido. '+(state.origin&&state.dest?'Pronto para calcular o trajeto.':'Defina o outro ponto.'));
+  }
+  function resetEndpoint(which){
+    if(state[which]){state[which]=null;clearRoute();drawMarkers();}
+    buttonState();
+  }
+  function clearRoute(){
+    state.routes=[];state.selectedRoute=0;
+    $('nav-result').hidden=true;
+    if(state.map&&state.map.getSource('ultron-nav-route'))state.map.getSource('ultron-nav-route').setData(emptyFeature());
+  }
+  const emptyFeature=()=>({type:'FeatureCollection',features:[]});
+  function makePin(color, text){const el=document.createElement('div');el.className='nav-map-pin';el.style.setProperty('--pin-color',color);el.textContent=text;return el;}
+  function drawMarkers(){
+    for(const m of state.markers)m.remove();state.markers=[];
+    if(!state.map||!state.lib)return;
+    for(const [which,color,text] of [['origin','#6de1ce','A'],['dest','#ffce86','B']]){
+      const p=state[which];if(!p)continue;
+      state.markers.push(new state.lib.Marker({element:makePin(color,text),anchor:'center'}).setLngLat(p.coords).addTo(state.map));
+    }
+  }
+  function formatPhoton(feature){
+    const p=feature.properties||{}, c=feature.geometry?.coordinates;
+    if(!Array.isArray(c)||!Number.isFinite(c[0])||!Number.isFinite(c[1]))return null;
+    const parts=[p.name, p.street, p.housenumber, p.district, p.city, p.state].filter(Boolean);
+    const label=[...new Set(parts)].join(', ') || `${c[1].toFixed(5)}, ${c[0].toFixed(5)}`;
+    return {coords:c,label};
+  }
+  function formatNominatim(item){
+    const lon=Number(item.lon),lat=Number(item.lat);
+    return Number.isFinite(lon)&&Number.isFinite(lat)?{coords:[lon,lat],label:String(item.display_name||`${lat}, ${lon}`)}:null;
+  }
+  const abortAfter=(timeout=11000)=>AbortSignal.timeout?AbortSignal.timeout(timeout):undefined;
+  async function queryPhoton(q,near){
+    const params = new URLSearchParams({q,limit:'8',countrycode:'BR'});
+    if(near){params.set('lat',String(near[1]));params.set('lon',String(near[0]));}
+    const r=await fetch('https://photon.komoot.io/api/?'+params.toString(),{signal:abortAfter()});
+    if(!r.ok)throw Error('Photon: HTTP '+r.status);
+    const payload=await r.json();return (payload.features||[]).map(formatPhoton).filter(Boolean);
+  }
+  async function queryNominatim(q){
+    const params=new URLSearchParams({q,format:'jsonv2',countrycodes:'br',limit:'8',addressdetails:'1'});
+    const r=await fetch('https://nominatim.openstreetmap.org/search?'+params.toString(),{signal:abortAfter()});
+    if(!r.ok)throw Error('Nominatim: HTTP '+r.status);
+    return (await r.json()).map(formatNominatim).filter(Boolean);
+  }
+  function searchResults(which,results,query,includeFallback){
+    const box=$('nav-'+which+'-results');box.replaceChildren();box.hidden=false;
+    if(!results.length){const p=document.createElement('p');p.className='nav-search-note';p.textContent='Nenhum lugar encontrado. Tente rua + cidade ou marque diretamente no mapa.';box.append(p);}
+    for(const r of results){
+      const btn=document.createElement('button');btn.className='nav-search-item';btn.type='button';
+      const label=document.createElement('span');label.textContent=short(r.label,115);btn.append(label);
+      btn.addEventListener('click',()=>setEndpoint(which,r.coords,r.label));box.append(btn);
+    }
+    if(includeFallback){
+      const other=document.createElement('button');other.type='button';other.className='nav-search-more';other.textContent='Tentar outra busca (OpenStreetMap)';
+      other.addEventListener('click',async()=>{
+        other.disabled=true;other.textContent='Consultando alternativa…';
+        try{const extra=await queryNominatim(query);searchResults(which,extra,query,false);
+          if(!extra.length)status('Busca alternativa também não encontrou o lugar. Use a seleção no mapa.','warning');
+        }catch(err){status('Outra busca indisponível: '+err.message,'error');other.disabled=false;other.textContent='Tentar novamente';}
+      });box.append(other);
+    }
+  }
+  function parseCoordinates(q){
+    const match=q.trim().match(/^(-?\d{1,2}(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:[.,]\d+)?)$/);
+    if(!match)return null;
+    const lat=Number(match[1].replace(',','.')),lon=Number(match[2].replace(',','.'));
+    if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return null;
+    return [lon,lat];
+  }
+  async function search(which){
+    const input=$('nav-'+which),query=input.value.trim();
+    if(query.length<3){status('Digite pelo menos 3 caracteres para pesquisar.','warning');return;}
+    const coords=parseCoordinates(query);
+    if(coords){setEndpoint(which,coords,`${coords[1].toFixed(5)}, ${coords[0].toFixed(5)}`);return;}
+    resetEndpoint(which);
+    const id=++state.requests[which];
+    const box=$('nav-'+which+'-results');box.hidden=false;box.textContent='Pesquisando lugares…';
+    status('Buscando '+(which==='origin'?'origem':'destino')+'…');
+    // Prioriza localizações próximas ao ponto de partida, ou ao centro do mapa.
+    const bias=which==='dest'&&state.origin?state.origin.coords:state.map?.getCenter()?.toArray()||[-46.63,-23.55];
+    try{
+      const res=await queryPhoton(query,bias);
+      if(id!==state.requests[which])return;
+      searchResults(which,res,query,true);
+      status(res.length?`Encontrei ${res.length} resultado(s). Escolha um lugar na lista.`:'Não encontrei esse nome. Tente a busca alternativa ou escolha no mapa.',res.length?'info':'warning');
+    }catch(err){
+      if(id!==state.requests[which])return;
+      box.replaceChildren();
+      const p=document.createElement('p');p.className='nav-search-note';p.textContent='O serviço principal está indisponível.';box.append(p);
+      const b=document.createElement('button');b.type='button';b.className='nav-search-more';b.textContent='Buscar com OpenStreetMap';
+      b.addEventListener('click',async()=>{b.disabled=true;try{searchResults(which,await queryNominatim(query),query,false);status('Busca alternativa concluída.');}catch(error){b.disabled=false;status('Falha nas duas buscas: '+error.message,'error');}});
+      box.append(b);status('Busca principal falhou: '+err.message,'warning');
+    }
+  }
+  async function gpsOrigin(){
+    if(!navigator.geolocation){status('Este navegador não oferece geolocalização.','error');return;}
+    status('Solicitando sua localização ao navegador…');
+    $('nav-gps').disabled=true;
+    navigator.geolocation.getCurrentPosition(pos=>{
+      $('nav-gps').disabled=false;
+      setEndpoint('origin',[pos.coords.longitude,pos.coords.latitude],'Minha localização');
+      status('Localização definida. Só será usada para o cálculo se você pedir uma rota.');
+    },err=>{ $('nav-gps').disabled=false;status('Não foi possível obter GPS: '+err.message,'warning');},
+    {enableHighAccuracy:true,timeout:12000,maximumAge:12000});
+  }
+  function setMapSelection(which){
+    if(!state.map){status('O mapa ainda não está disponível.','warning');return;}
+    state.choosing=which;
+    window.__ultronNavMapSelection=true;
+    state.map.getCanvas().style.cursor='crosshair';
+    status(`Clique no mapa para marcar ${which==='origin'?'a origem':'o destino'}. Toque novamente no botão para cancelar.`);
+    $('nav-origin-pick').classList.toggle('active',which==='origin');
+    $('nav-dest-pick').classList.toggle('active',which==='dest');
+  }
+  function stopMapSelection(){state.choosing=null;window.__ultronNavMapSelection=false;
+    if(state.map)state.map.getCanvas().style.cursor='';
+    $('nav-origin-pick').classList.remove('active');$('nav-dest-pick').classList.remove('active');}
+
+  function maneuverText(s){
+    const m=s.maneuver||{},type=m.type||'',dir=m.modifier||'',road=(s.name||'').trim();
+    let msg='';
+    if(type==='depart')msg='Siga pela via';
+    else if(type==='arrive')return 'Chegada ao destino';
+    else if(type==='roundabout'||type==='rotary')msg='Entre na rotatória';
+    else if(type==='merge')msg='Entre na via';
+    else if(type==='on ramp')msg='Pegue o acesso';
+    else if(type==='off ramp')msg='Saia pelo acesso';
+    else if(type==='fork')msg='Mantenha-se '+(dir.includes('left')?'à esquerda':dir.includes('right')?'à direita':'na via');
+    else if(type==='end of road')msg='No fim da via, '+(dir.includes('left')?'vire à esquerda':dir.includes('right')?'vire à direita':'prossiga');
+    else if(type==='turn')msg=dir.includes('left')?'Vire à esquerda':dir.includes('right')?'Vire à direita':dir.includes('uturn')?'Faça o retorno':'Siga em frente';
+    else if(type==='continue'||type==='new name')msg=dir.includes('left')?'Continue à esquerda':dir.includes('right')?'Continue à direita':'Continue em frente';
+    else msg='Prossiga';
+    return road?`${msg} — ${road}`:msg;
+  }
+  function renderInstructions(route){
+    const list=$('nav-steps');list.replaceChildren();
+    let count=0;
+    for(const leg of route.legs||[]){for(const step of leg.steps||[]){
+      if(step.maneuver?.type==='notification')continue;
+      const row=document.createElement('li');row.className='nav-step';
+      const dist=document.createElement('span');dist.className='nav-step-distance';dist.textContent=step.maneuver?.type==='arrive'?'Fim':step.distance>=1000?formatKm(step.distance):`${Math.round(step.distance)} m`;
+      const desc=document.createElement('span');desc.textContent=maneuverText(step);
+      row.append(dist,desc);list.append(row);count++;
+    }}
+    if(!count){const el=document.createElement('li');el.textContent='Instruções detalhadas indisponíveis para este trajeto.';list.append(el);}
+  }
+  function routeFeature(route){return {type:'Feature',geometry:route.geometry,properties:{}};}
+  function showRoute(index){
+    state.selectedRoute=index;
+    const route=state.routes[index];if(!route)return;
+    $('nav-result').hidden=false;
+    $('nav-distance').textContent=formatKm(route.distance);
+    $('nav-duration').textContent=formatDur(route.duration);
+    $('nav-alt-list').replaceChildren();
+    if(state.routes.length>1)for(let i=0;i<state.routes.length;i++){
+      const r=state.routes[i],b=document.createElement('button');b.type='button';
+      b.className='nav-alt'+(index===i?' active':'');
+      b.textContent=`Rota ${i+1} · ${formatKm(r.distance)} · ${formatDur(r.duration)}`;
+      b.addEventListener('click',()=>showRoute(i));$('nav-alt-list').append(b);
+    }
+    renderInstructions(route);
+    if(state.map){
+      const s=state.map.getSource('ultron-nav-route');if(s)s.setData({type:'FeatureCollection',features:[routeFeature(route)]});
+      const bounds=new state.lib.LngLatBounds();for(const c of route.geometry.coordinates)bounds.extend(c);
+      state.map.fitBounds(bounds,{padding:Math.min(window.innerWidth,window.innerHeight)<500?34:80,maxZoom:14,duration:850});
+    }
+    status('Trajeto calculado. Tempo aproximado sem trânsito em tempo real.');
+  }
+  async function route(){
+    if(!state.origin||!state.dest){status('Escolha origem e destino antes de calcular.','warning');return;}
+    if(state.busy)return;
+    state.busy=true;buttonState();$('nav-route').textContent='Calculando…';status('Consultando o roteador OSRM…');
+    const p=state.origin.coords,d=state.dest.coords;
+    try{
+      const params=new URLSearchParams({overview:'full',geometries:'geojson',steps:'true',alternatives:'true'});
+      const url=`https://router.project-osrm.org/route/v1/driving/${p.join(',')};${d.join(',')}?${params}`;
+      const r=await fetch(url,{signal:abortAfter(18000)});if(!r.ok)throw Error('Roteamento: HTTP '+r.status);
+      const data=await r.json();
+      if(data.code!=='Ok'||!data.routes?.length)throw Error(data.message||'Não existe um trajeto rodoviário entre os pontos informados.');
+      state.routes=data.routes.filter(r=>r.geometry?.type==='LineString'&&r.geometry?.coordinates?.length>1);
+      if(!state.routes.length)throw Error('O serviço não retornou uma geometria de trajeto válida.');
+      showRoute(0);
+    }catch(err){clearRoute();status('Não foi possível traçar rota: '+err.message,'error');}
+    finally{state.busy=false;buttonState();$('nav-route').textContent='Traçar rota';}
+  }
+  function clearAll(){
+    for(const w of ['origin','dest']){state[w]=null;state.requests[w]++;$('nav-'+w).value='';$('nav-'+w+'-results').replaceChildren();$('nav-'+w+'-results').hidden=true;}
+    stopMapSelection();stopFollow();clearRoute();drawMarkers();buttonState();status('Informe uma origem e um destino para começar.');
+  }
+  function drawGps(pos){
+    if(!state.map||!state.lib)return;
+    if(!state.gpsMarker){state.gpsMarker=new state.lib.Marker({element:makePin('#62a9ff','●'),anchor:'center'}).setLngLat(pos).addTo(state.map);}
+    else state.gpsMarker.setLngLat(pos);
+    state.map.easeTo({center:pos,zoom:Math.max(13,state.map.getZoom()),duration:450});
+  }
+  function stopFollow(){
+    if(state.watchId!=null){navigator.geolocation.clearWatch(state.watchId);state.watchId=null;}
+    if(state.gpsMarker){state.gpsMarker.remove();state.gpsMarker=null;}
+    $('nav-follow').textContent='Acompanhar meu GPS';$('nav-follow').classList.remove('active');
+  }
+  function toggleFollow(){
+    if(state.watchId!=null){stopFollow();status('Acompanhamento do GPS desligado.');return;}
+    if(!navigator.geolocation){status('Este navegador não oferece GPS.','error');return;}
+    status('Solicitando permissão para acompanhar sua posição…');
+    state.watchId=navigator.geolocation.watchPosition(pos=>{
+      drawGps([pos.coords.longitude,pos.coords.latitude]);
+      status('GPS acompanhando sua posição. O trajeto é uma prévia e não faz recálculo automático.');
+    },err=>{stopFollow();status('GPS indisponível: '+err.message,'warning');},
+    {enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+    $('nav-follow').textContent='Parar acompanhamento';$('nav-follow').classList.add('active');
+  }
+  function mountMap(map,lib){
+    state.map=map;state.lib=lib;
+    if(!map.getSource('ultron-nav-route')){
+      map.addSource('ultron-nav-route',{type:'geojson',data:emptyFeature()});
+      map.addLayer({id:'ultron-nav-shadow',type:'line',source:'ultron-nav-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#061f2c','line-width':11,'line-opacity':.8}});
+      map.addLayer({id:'ultron-nav-line',type:'line',source:'ultron-nav-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#6de1ce','line-width':6,'line-opacity':.98}});
+    }
+    map.on('click',evt=>{if(!state.choosing)return;const which=state.choosing;
+      setEndpoint(which,[evt.lngLat.lng,evt.lngLat.lat],`Ponto marcado (${evt.lngLat.lat.toFixed(5)}, ${evt.lngLat.lng.toFixed(5)})`);stopMapSelection();});
+    drawMarkers();if(state.routes.length)showRoute(state.selectedRoute);
+  }
+  function init(){
+    $('mode-explore').addEventListener('click',()=>setMode('explore'));
+    $('mode-navigate').addEventListener('click',()=>setMode('navigate'));
+    $('nav-origin-search').addEventListener('click',()=>search('origin'));
+    $('nav-dest-search').addEventListener('click',()=>search('dest'));
+    for(const which of ['origin','dest']){
+      $('nav-'+which).addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();search(which);}});
+      $('nav-'+which).addEventListener('input',()=>{state.requests[which]++;if(state[which])resetEndpoint(which);$('nav-'+which+'-results').hidden=true;});
+      $('nav-'+which+'-pick').addEventListener('click',()=>{
+        if(state.choosing===which){stopMapSelection();status('Marcação no mapa cancelada.');}
+        else setMapSelection(which);
+      });
+    }
+    $('nav-gps').addEventListener('click',gpsOrigin);
+    $('nav-route').addEventListener('click',route);
+    $('nav-clear').addEventListener('click',clearAll);
+    $('nav-follow').addEventListener('click',toggleFollow);
+    $('nav-recenter').addEventListener('click',()=>{if(state.routes.length)showRoute(state.selectedRoute);});
+    window.addEventListener('ultron:mapready',evt=>mountMap(evt.detail.map,evt.detail.maplibregl));
+    window.addEventListener('pagehide',stopFollow);
+    buttonState();
+  }
+  function setMode(which){
+    const on=which==='navigate';
+    document.querySelector('.shell')?.classList.toggle('nav-active',on);
+    $('explore-panel').hidden=on;
+    $('navigation-panel').hidden=!on;
+    $('mode-explore').classList.toggle('active',!on);
+    $('mode-navigate').classList.toggle('active',on);
+    $('mode-explore').setAttribute('aria-pressed',String(!on));
+    $('mode-navigate').setAttribute('aria-pressed',String(on));
+    if(state.map){state.map.resize();if(on&&state.routes.length)showRoute(state.selectedRoute);}
+    if(!on){stopMapSelection();stopFollow();}
+  }
+  init();
+})();
