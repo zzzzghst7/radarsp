@@ -129,6 +129,34 @@
 @media(max-width:370px){.route-hud-actions button{padding:8px 6px}.route-hud-copy strong{max-width:120px}}
 @media(prefers-reduced-motion:reduce){.sidebar{transition:none}}
 
+
+/* V9 — orientação por GPS com acompanhamento pausável; velocímetro independente da base de radares */
+.speed-hud{position:absolute;z-index:6;left:18px;bottom:max(94px,env(safe-area-inset-bottom) + 84px);border:1px solid #46677b80;border-radius:16px;background:#0d1e2be9;backdrop-filter:blur(18px);padding:10px 14px 9px;min-width:122px;box-shadow:0 10px 24px #0007;color:#f1fafb;pointer-events:none}
+.speed-hud-top{display:flex;gap:5px;align-items:baseline;font-variant-numeric:tabular-nums}
+#speed-value{font-size:36px;font-weight:900;letter-spacing:-.045em;line-height:1.05}
+.speed-unit{font-size:12px;font-weight:700;color:#afcbd6}
+.speed-hud-caption{margin-top:5px;font-size:10px;color:#b4cbd5;line-height:1.4;max-width:205px}
+.speed-hud.over-limit{border-color:#f26c6c;background:#3a1824f2}
+.speed-hud.over-limit #speed-value{color:#ff6268}
+.speed-hud.over-limit .speed-hud-caption{color:#ffd6d6}
+.map-recenter{position:absolute;z-index:7;right:19px;bottom:max(99px,env(safe-area-inset-bottom) + 89px);display:grid;place-items:center;height:50px;width:50px;border-radius:16px;border:1px solid #648194;background:#0d2636ed;color:#b9edee;box-shadow:0 10px 24px #0008;cursor:pointer;transition:background .15s,border-color .15s}
+.map-recenter:hover,.map-recenter:focus-visible{background:#204659;border-color:#8cebdc}
+.shell.route-active .speed-hud{bottom:max(21px,env(safe-area-inset-bottom) + 15px)}
+.shell.route-active .map-recenter{bottom:max(27px,env(safe-area-inset-bottom) + 21px)}
+.shell.explore-mode .speed-hud,.shell.explore-mode .map-recenter,.shell.drawer-open .speed-hud,.shell.drawer-open .map-recenter{display:none!important}
+.posted-limit-config{margin:13px 0 17px;padding:12px;border:1px solid #355263;border-radius:11px;background:#112638}
+.posted-limit-config .nav-label{margin:0 0 8px}
+.posted-limit-config select{width:100%;background:#17354b;color:#eaf9fa;border:1px solid #547285;border-radius:9px;padding:10px 12px;font:inherit;font-size:12px}
+.posted-limit-config p{color:#a8c3d1;font-size:10px;line-height:1.5;margin:8px 0 0}
+@media(max-width:700px){
+.speed-hud{left:12px;bottom:max(101px,env(safe-area-inset-bottom) + 90px);min-width:104px;padding:9px 11px}
+#speed-value{font-size:30px}
+.speed-hud-caption{font-size:9px;max-width:155px}
+.map-recenter{right:12px;bottom:max(109px,env(safe-area-inset-bottom) + 98px);width:46px;height:46px;border-radius:14px}
+.shell.route-active .speed-hud{bottom:max(17px,env(safe-area-inset-bottom) + 10px)}
+.shell.route-active .map-recenter{bottom:max(25px,env(safe-area-inset-bottom) + 18px)}
+}
+
 </style>
 </head>
 <body>
@@ -169,6 +197,19 @@
       <div class="nav-search-line"><input id="nav-dest" placeholder="Ex.: Unicamp, Campinas" autocomplete="off"><button id="nav-dest-search" type="button">Buscar</button></div>
       <div class="nav-tools"><button id="nav-dest-pick" type="button">Marcar no mapa</button></div>
       <div id="nav-dest-results" class="nav-search-results" hidden></div>
+      <div class="posted-limit-config">
+        <label class="nav-label" for="nav-posted-limit">Limite sinalizado da via (opcional)</label>
+        <select id="nav-posted-limit" aria-label="Limite de velocidade indicado na sinalização">
+          <option value="">Não informado</option>
+          <option value="20">20 km/h</option><option value="30">30 km/h</option>
+          <option value="40">40 km/h</option><option value="50">50 km/h</option>
+          <option value="60">60 km/h</option><option value="70">70 km/h</option>
+          <option value="80">80 km/h</option><option value="90">90 km/h</option>
+          <option value="100">100 km/h</option><option value="110">110 km/h</option>
+          <option value="120">120 km/h</option>
+        </select>
+        <p>Use somente o limite indicado nas placas. Atualize-o antes de iniciar ou quando parar; ele não é extraído dos radares.</p>
+      </div>
       <div class="nav-actions"><button type="button" class="nav-primary" id="nav-route" disabled>Traçar rota</button><button type="button" class="nav-secondary" id="nav-clear" disabled>Limpar</button></div>
       <div class="nav-status" role="status" aria-live="polite" id="nav-status">Informe uma origem e um destino para começar.</div>
       <section class="nav-result" id="nav-result" hidden aria-label="Rota calculada">
@@ -187,13 +228,20 @@
     <p>Mapa informativo; registros não garantem operação atual. Os limites oficiais indicados nas placas prevalecem.</p>
   </footer>
 </aside>
-<main class="map-section" aria-label="Mapa informativo de São Paulo">
-  <div id="map" role="img" aria-label="Mapa com agrupamentos aproximados por município"></div>
+<main class="map-section" aria-label="Mapa de São Paulo com acompanhamento opcional por GPS">
+  <div id="map" aria-label="Mapa interativo de São Paulo"></div>
   <div class="map-fallback" id="map-fallback"><div class="inner"><strong>Carregando mapa…</strong><p>Se o mapa não carregar, as estatísticas e a pesquisa continuam disponíveis.</p></div></div>
   <div class="topbar"><div class="top-info"><div class="big" id="map-heading">São Paulo · visão geral</div><div class="small" id="map-subheading">Dados municipais agregados · 2026</div></div><button class="top-control" id="reset-map" type="button">Ver todo o estado</button></div>
   <div class="map-note"><div class="dots"><span class="dot"></span><strong>Concentração por município</strong></div><p>Círculos representam contagens agregadas. A posição é aproximada e não corresponde a um radar específico.</p></div>
   <div class="analytics" id="analytics"><h3>Velocidades cadastradas no conjunto</h3><div id="speed-bars"></div><p class="sub">São valores associados a equipamentos, não limites gerais de cada rodovia.</p></div>
   <div class="quiet-logo" aria-hidden="true"><span class="signal"></span> ULTRON <strong>SP</strong></div>
+  <section id="speed-hud" class="speed-hud" aria-label="Velocidade por GPS" role="status">
+    <div class="speed-hud-top"><span id="speed-value">—</span><span class="speed-unit">km/h</span></div>
+    <div id="speed-limit-caption" class="speed-hud-caption">GPS não iniciado · limite não informado</div>
+  </section>
+  <button id="map-recenter" class="map-recenter" type="button" aria-label="Centralizar na minha localização" title="Centralizar na minha localização">
+    <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="8" opacity=".5"/></svg>
+  </button>
   <nav class="map-dock" id="map-dock" aria-label="Ações principais">
     <button type="button" id="dock-destination" class="dock-btn dock-primary" aria-label="Selecionar destino">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-8-8 18-2.6-7.4L3 11Z"/><path d="m10.4 13.6 4.8-4.8"/></svg>

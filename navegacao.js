@@ -1,4 +1,4 @@
-/* ULTRON SP V7 — planejamento de trajetos. Sem alertas de fiscalização.
+/* ULTRON SP V9 — navegação e velocímetro da via, sem alertas vinculados à fiscalização.
    Geocodificação: Photon (busca explícita), fallback Nominatim sob demanda.
    Rotas: OSRM público para demonstração. Para produção, contratar backend com SLA.
 */
@@ -7,7 +7,9 @@
   const $ = (id) => document.getElementById(id);
   const state = { map: null, lib: null, origin: null, dest: null, routes: [], selectedRoute: 0,
                   choosing: null, markers: [], gpsMarker: null, watchId: null, busy: false,
-                  requests: {origin: 0, dest: 0} };
+                  requests: {origin: 0, dest: 0}, gpsPosition: null, gpsPrev: null,
+                  speedKmh: null, gpsAvailability: 'pending', followMap: false,
+                  speedLimit: null, requestingTracking: false };
   const formatKm = m => (m >= 10000 ? (m/1000).toLocaleString('pt-BR',{maximumFractionDigits:0}) : (m/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})) + ' km';
   const formatDur = secs => { let n = Math.max(1,Math.round(secs/60)); const h=Math.floor(n/60); n %= 60; return h ? `${h} h${n ? ` ${n} min` : ''}` : `${n} min`; };
   const escapeValue = (str) => String(str??'');
@@ -221,29 +223,107 @@
   }
   function clearAll(){
     for(const w of ['origin','dest']){state[w]=null;state.requests[w]++;$('nav-'+w).value='';$('nav-'+w+'-results').replaceChildren();$('nav-'+w+'-results').hidden=true;}
-    stopMapSelection();stopFollow();clearRoute();drawMarkers();buttonState();status('Informe uma origem e um destino para começar.');
+    stopMapSelection();clearRoute();drawMarkers();buttonState();status('Informe uma origem e um destino para começar.');
+  }
+  // O CSV contém velocidades de equipamentos, não o limite atual da via.
+  // Só destacamos excesso em relação ao limite de placa informado voluntariamente.
+  function renderSpeed(){
+    const value=$('speed-value'),caption=$('speed-limit-caption'),hud=$('speed-hud');
+    if(Number.isFinite(state.speedKmh)) value.textContent=String(Math.round(Math.max(0,state.speedKmh)));
+    else value.textContent='—';
+    const limit=state.speedLimit;
+    const excess=Number.isFinite(state.speedKmh)&&Number.isFinite(limit)&&state.speedKmh>limit;
+    hud.classList.toggle('over-limit',excess);
+    const suffix=Number.isFinite(limit)?`limite de placa: ${limit} km/h`:'limite não informado';
+    caption.textContent=(state.gpsAvailability==='denied'?'Localização bloqueada':state.gpsAvailability==='unavailable'?'GPS indisponível':state.gpsAvailability==='pending'?'Aguardando GPS':'Velocidade aproximada')+' · '+suffix;
+  }
+  function haversineMeters(a,b){
+    const rad=Math.PI/180,lat1=a[1]*rad,lat2=b[1]*rad,dlat=(b[1]-a[1])*rad,dlon=(b[0]-a[0])*rad;
+    const q=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlon/2)**2;
+    return 12742000*Math.asin(Math.min(1,Math.sqrt(q)));
+  }
+  function speedFromFix(fix){
+    const p=fix.coords,coords=[p.longitude,p.latitude],t=Number(fix.timestamp)||Date.now();
+    const raw=Number.isFinite(p.speed)&&p.speed>=0 ? p.speed*3.6 : null;
+    let estimate=null;
+    if(raw!==null) estimate=raw;
+    else if(state.gpsPrev){
+      const delta=(t-state.gpsPrev.time)/1000;
+      if(delta>=3&&delta<=30&&p.accuracy<=50&&state.gpsPrev.accuracy<=50){
+        const d=haversineMeters(coords,state.gpsPrev.coords);
+        if(d>=12) estimate=d/delta*3.6;
+        else if(d<8&&delta>=5)estimate=0;
+      }
+    }
+    state.gpsPrev={coords,time:t,accuracy:p.accuracy};
+    // Não apresentar valores derivados de posições pouco confiáveis.
+    if(p.accuracy>85)estimate=null;
+    state.speedKmh=estimate;
+    state.gpsAvailability='ready';
+    renderSpeed();
+    return coords;
+  }
+  function renderRecenter(){
+    const btn=$('map-recenter');
+    btn.title=state.gpsPosition?(state.followMap?'Centralizado na localização':'Voltar à minha localização'):'Ativar localização';
+    btn.setAttribute('aria-label',btn.title);
+    // Visível na entrada para pedir permissão quando necessário; depois de arrastar, reaparece.
+    btn.hidden=!!state.gpsPosition&&state.followMap;
+  }
+  function centerOnUser(animate=true){
+    if(!state.map||!state.gpsPosition)return;
+    state.followMap=true;
+    state.map.easeTo({center:state.gpsPosition,zoom:Math.max(14,state.map.getZoom()),duration:animate?480:0,essential:true});
+    renderRecenter();
+  }
+  function pauseAutoFollow(){
+    if(!state.followMap)return;
+    state.followMap=false;
+    renderRecenter();
   }
   function drawGps(pos){
+    state.gpsPosition=pos;
     if(!state.map||!state.lib)return;
     if(!state.gpsMarker){state.gpsMarker=new state.lib.Marker({element:makePin('#62a9ff','●'),anchor:'center'}).setLngLat(pos).addTo(state.map);}
     else state.gpsMarker.setLngLat(pos);
-    state.map.easeTo({center:pos,zoom:Math.max(13,state.map.getZoom()),duration:450});
+    if(state.followMap)centerOnUser(false);
+    else renderRecenter();
   }
   function stopFollow(){
-    if(state.watchId!=null){navigator.geolocation.clearWatch(state.watchId);state.watchId=null;}
+    if(state.watchId!=null&&navigator.geolocation){navigator.geolocation.clearWatch(state.watchId);state.watchId=null;}
     if(state.gpsMarker){state.gpsMarker.remove();state.gpsMarker=null;}
+    state.gpsPosition=null;state.gpsPrev=null;state.speedKmh=null;state.followMap=false;
+    state.gpsAvailability='pending';
     $('nav-follow').textContent='Acompanhar meu GPS';$('nav-follow').classList.remove('active');
+    renderSpeed();renderRecenter();
+  }
+  function startTracking(){
+    if(state.watchId!=null){centerOnUser();return;}
+    if(!navigator.geolocation){state.gpsAvailability='unavailable';renderSpeed();renderRecenter();return;}
+    state.followMap=true;state.gpsAvailability='pending';renderSpeed();
+    state.watchId=navigator.geolocation.watchPosition(fix=>{
+      const coords=speedFromFix(fix);
+      drawGps(coords);
+      $('nav-follow').textContent='Desligar GPS';$('nav-follow').classList.add('active');
+    },err=>{
+      stopFollow();state.gpsAvailability=err.code===1?'denied':'unavailable';renderSpeed();
+      status('Não foi possível acompanhar a localização: '+err.message,'warning');
+    },{enableHighAccuracy:true,maximumAge:2000,timeout:15000});
+    $('nav-follow').textContent='Desligar GPS';$('nav-follow').classList.add('active');
   }
   function toggleFollow(){
-    if(state.watchId!=null){stopFollow();status('Acompanhamento do GPS desligado.');return;}
-    if(!navigator.geolocation){status('Este navegador não oferece GPS.','error');return;}
-    status('Solicitando permissão para acompanhar sua posição…');
-    state.watchId=navigator.geolocation.watchPosition(pos=>{
-      drawGps([pos.coords.longitude,pos.coords.latitude]);
-      status('GPS acompanhando sua posição. O trajeto é uma prévia e não faz recálculo automático.');
-    },err=>{stopFollow();status('GPS indisponível: '+err.message,'warning');},
-    {enableHighAccuracy:true,maximumAge:5000,timeout:15000});
-    $('nav-follow').textContent='Parar acompanhamento';$('nav-follow').classList.add('active');
+    if(state.watchId!=null){stopFollow();status('GPS desligado.');return;}
+    status('Solicitando permissão para usar o GPS…');startTracking();
+  }
+  async function startIfAllowed(){
+    if(state.watchId!=null)return;
+    // Não mostrar um pedido de permissão inesperado: quando necessário,
+    // o usuário toca no botão de centralizar.
+    if(!navigator.permissions?.query){renderRecenter();return;}
+    try{const p=await navigator.permissions.query({name:'geolocation'});
+      if(p.state==='granted'&&document.querySelector('.shell')?.classList.contains('nav-active'))startTracking();
+      else {if(p.state==='denied')state.gpsAvailability='denied';renderRecenter();renderSpeed();}
+    }catch(e){renderRecenter();}
   }
   function mountMap(map,lib){
     state.map=map;state.lib=lib;
@@ -254,7 +334,11 @@
     }
     map.on('click',evt=>{if(!state.choosing)return;const which=state.choosing;
       setEndpoint(which,[evt.lngLat.lng,evt.lngLat.lat],`Ponto marcado (${evt.lngLat.lat.toFixed(5)}, ${evt.lngLat.lng.toFixed(5)})`);stopMapSelection();});
-    drawMarkers();toggleMunicipalLayers(false);if(state.routes.length)enterRouteView();
+    map.on('dragstart',pauseAutoFollow);
+    map.on('zoomstart',evt=>{if(evt?.originalEvent)pauseAutoFollow();});
+    map.on('rotatestart',evt=>{if(evt?.originalEvent)pauseAutoFollow();});
+    drawMarkers();toggleMunicipalLayers(false);renderRecenter();startIfAllowed();
+    if(state.routes.length)enterRouteView();
   }
   function toggleMunicipalLayers(visible){
     if(!state.map)return;
@@ -285,7 +369,13 @@
     $('route-hud-dest').textContent=short(state.dest?.label||'Destino',75);
     $('route-hud-metrics').textContent=`${formatKm(route.distance)} · ${formatDur(route.duration)} · estimativa sem trânsito`;
     closeDrawer();
-    if(state.map){requestAnimationFrame(()=>{state.map.resize();const b=new state.lib.LngLatBounds();for(const c of route.geometry.coordinates)b.extend(c);state.map.fitBounds(b,{padding:{top:105,bottom:80,left:35,right:35},maxZoom:14,duration:650});});}
+    if(state.map){requestAnimationFrame(()=>{
+      state.map.resize();
+      if(state.gpsPosition&&state.followMap){centerOnUser();return;}
+      const b=new state.lib.LngLatBounds();for(const c of route.geometry.coordinates)b.extend(c);
+      state.map.fitBounds(b,{padding:{top:105,bottom:80,left:35,right:35},maxZoom:14,duration:650});
+      renderRecenter();
+    });}
   }
   function leaveRouteView(){
     document.querySelector('.shell')?.classList.remove('route-active');
@@ -298,7 +388,7 @@
     $('dock-about').addEventListener('click',()=>openDrawer('explore'));
     $('close-panel').addEventListener('click',closeDrawer);
     $('route-hud-edit').addEventListener('click',()=>openDrawer('navigate'));
-    $('route-hud-close').addEventListener('click',()=>{stopFollow();clearAll();closeDrawer();});
+    $('route-hud-close').addEventListener('click',()=>{clearAll();closeDrawer();});
     document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&document.querySelector('.shell')?.classList.contains('drawer-open'))closeDrawer();});
     $('nav-origin-search').addEventListener('click',()=>search('origin'));
     $('nav-dest-search').addEventListener('click',()=>search('dest'));
@@ -314,10 +404,19 @@
     $('nav-route').addEventListener('click',route);
     $('nav-clear').addEventListener('click',clearAll);
     $('nav-follow').addEventListener('click',toggleFollow);
+    $('map-recenter').addEventListener('click',()=>{
+      if(state.gpsPosition)centerOnUser();
+      else {startTracking();status('Aguardando sua localização para centralizar…');}
+    });
+    $('nav-posted-limit').addEventListener('change',ev=>{
+      const v=Number(ev.target.value);
+      state.speedLimit=ev.target.value&&Number.isFinite(v)?v:null;
+      renderSpeed();
+    });
     $('nav-recenter').addEventListener('click',()=>{if(state.routes.length)showRoute(state.selectedRoute);});
     window.addEventListener('ultron:mapready',evt=>mountMap(evt.detail.map,evt.detail.maplibregl));
     window.addEventListener('pagehide',stopFollow);
-    buttonState();
+    buttonState();renderSpeed();renderRecenter();
     setMode('navigate');
   }
   function setMode(which){
@@ -335,6 +434,7 @@
     $('mode-navigate').setAttribute('aria-pressed',String(on));
     resizeMap();
     if(!on){stopMapSelection();stopFollow();}
+    else if(state.map)startIfAllowed();
   }
   init();
 })();
