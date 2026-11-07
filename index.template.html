@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07111c"><meta name="description" content="ULTRON SP — painel informativo de segurança viária baseado em dados públicos do estado de São Paulo.">
+<title>ULTRON SP · Observatório viário</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.css">
+<style>
+:root{--bg:#07111c;--panel:#101d2b;--panel2:#17283a;--line:#293e50;--muted:#9eb4c5;--text:#f2f8fb;--teal:#6de1ce;--amber:#ffce86;--w:360px;color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}a{color:var(--teal)}
+.shell{height:100dvh;display:grid;grid-template-columns:var(--w) minmax(0,1fr)}.sidebar{background:#0d1b2a;border-right:1px solid var(--line);z-index:4;display:flex;flex-direction:column;min-height:0}.brand{padding:25px 23px 19px;background:radial-gradient(ellipse at 30% -10%,#1b4e55 0%,#102233 46%,#0d1b2a 85%);border-bottom:1px solid var(--line)}
+.eyebrow{display:flex;align-items:center;gap:9px;color:var(--teal);letter-spacing:.16em;font-size:11px;font-weight:850;text-transform:uppercase}.signal{width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 5px #6de1ce19}.brand h1{font-size:29px;letter-spacing:-1.2px;margin:13px 0 3px;font-weight:850}.brand h1 span{color:var(--teal)}.subtitle{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:19px}.kpi{border:1px solid #304859;background:#162c3bcb;border-radius:12px;padding:13px 12px}.kpi .num{font-weight:800;font-size:23px;letter-spacing:-.7px;font-variant-numeric:tabular-nums}.kpi small{font-size:10.5px;color:#a6bfce;line-height:1.35}.sidebar-body{padding:20px 17px 10px;overflow:auto;flex:1;min-height:0}.search-label{font-weight:800;font-size:12px;color:#c4dfec;display:block;margin-bottom:10px}.search-shell{display:flex;gap:9px;align-items:center;border:1px solid #446174;background:#142739;border-radius:11px;padding:0 12px}.search-shell svg{width:17px;flex:none;opacity:.7}.search-shell input{border:0;outline:0;background:none;color:#fff;height:46px;width:100%;font-size:13px;min-width:0}.search-shell input::placeholder{color:#8fa8ba}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:16px 0 15px}.tabs button{padding:10px 8px;border-radius:9px;border:1px solid #2c4458;background:#122538;color:#abc4d5;font-size:12px;font-weight:750}.tabs button.active{background:#1c4852;color:#e9fffa;border-color:#57a99d}.listhead{display:flex;justify-content:space-between;align-items:center;margin:2px 0 11px;font-size:11px;color:var(--muted)}.listhead b{color:#dbeef6}.list{display:grid;gap:7px}.place{border:1px solid #294258;background:#14293a;padding:11px 12px;border-radius:10px;display:flex;align-items:center;gap:10px;width:100%;color:#e9f6fa;text-align:left;transition:background .16s,border .16s}.place:hover{background:#1a3748;border-color:#4d8890}.place.active{background:#1e424d;border-color:var(--teal)}.place .label{font-size:12px;font-weight:750;min-width:0;overflow-wrap:anywhere;flex:1}.place .sublabel{display:block;font-weight:400;color:#9bb6c7;font-size:10px;margin-top:4px}.pill{color:var(--teal);background:#254d53;min-width:35px;padding:6px 7px;font-size:11px;text-align:center;border-radius:7px;font-weight:800;font-variant-numeric:tabular-nums}
+.load-more{display:block;margin:12px auto 4px;border:1px solid #375a70;background:transparent;color:#c6e4ee;padding:9px 17px;border-radius:10px;font-size:12px}.hint{font-size:11px;line-height:1.55;color:#94aebf}.selected{border:1px solid #3e7779;border-radius:13px;background:linear-gradient(135deg,#17383f,#172a3b);padding:13px;margin:13px 0}.selected[hidden]{display:none!important}.selected .overline{color:var(--teal);font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:850}.selected h2{margin:7px 0 8px;font-size:17px}.selected p{font-size:11px;line-height:1.6;margin:4px 0;color:#c1d6e2}.selected button{font-size:11px;color:var(--teal);border:0;background:none;padding:5px 0;font-weight:700}
+.sidebar-foot{padding:12px 17px;border-top:1px solid #283d50;color:#9bb4c6;font-size:10px;line-height:1.6;background:#0c1927}.sidebar-foot a{color:#a1e9df}.sidebar-foot .credit{display:flex;justify-content:space-between;gap:10px}.sidebar-foot p{margin:5px 0}
+.map-section{min-height:0;position:relative;background:radial-gradient(ellipse at 40% 40%,#153342,#0c1725 65%);overflow:hidden}#map{position:absolute;inset:0}.map-fallback{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;color:#aec9d8;text-align:center;padding:20px}.map-fallback .inner{border:1px solid #345366;background:#0f2230ef;border-radius:12px;padding:18px;max-width:310px;font-size:12px;line-height:1.7}.map-fallback[hidden]{display:none!important}
+.topbar{position:absolute;z-index:2;top:20px;left:20px;right:20px;display:flex;align-items:flex-start;justify-content:space-between;pointer-events:none;gap:10px}.top-info,.top-control{pointer-events:auto;background:#101e2df0;border:1px solid #355166;box-shadow:0 10px 28px #04132088;border-radius:13px;padding:13px 16px}.top-info .big{font-size:13px;font-weight:850}.top-info .small{font-size:11px;color:#9fbcce;margin-top:4px;line-height:1.4}.top-control{border-radius:10px;padding:9px 12px;color:#c5eff0;font-size:11px;font-weight:800}.top-control:hover{background:#1c3c45}
+.map-note{position:absolute;z-index:3;bottom:21px;left:20px;max-width:380px;border:1px solid #355267;border-radius:12px;background:#102031e8;padding:12px 14px;box-shadow:0 7px 25px #06172588}.map-note strong{font-size:11px;display:block;margin-bottom:5px;color:#e6f9f8}.map-note p{font-size:10.5px;line-height:1.55;margin:0;color:#a4c0d1}.map-note .dots{display:flex;align-items:center;gap:7px;margin-bottom:6px;color:#c9dce8;font-size:10px}.dot{display:inline-block;width:10px;height:10px;background:var(--teal);border:2px solid #c9fff1;border-radius:50%}.maplibregl-ctrl-bottom-right{bottom:4px}.maplibregl-ctrl-attrib{font-size:10px!important}.maplibregl-popup-content{border:1px solid #48697c;background:#112b3c;color:#fff;border-radius:11px;padding:12px 15px;box-shadow:0 10px 27px #05121c99}.maplibregl-popup-close-button{color:#fff;font-size:18px;padding:3px 8px}.popup-city{font-size:13px;font-weight:800;margin-right:12px}.popup-count{font-size:11px;color:#a9d9d6;margin-top:5px}
+.analytics{position:absolute;z-index:2;right:20px;bottom:20px;background:#102030f2;border:1px solid #355267;border-radius:14px;width:225px;padding:15px 14px;box-shadow:0 7px 25px #06172588}.analytics h3{font-size:11px;margin:0 0 12px;color:#edf9fa}.speed-row{display:grid;grid-template-columns:49px 1fr 30px;align-items:center;gap:7px;margin:9px 0;font-size:10px;color:#aac6d4;font-variant-numeric:tabular-nums;white-space:nowrap}.speed-row .bar{height:6px;background:#30495c;border-radius:99px;overflow:hidden}.speed-row .bar span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#329d9a,var(--teal))}.speed-row b{text-align:right;font-size:10px;font-weight:700;color:#eaf6fa}.analytics .sub{font-size:10px;line-height:1.5;color:#9db4c5;margin:10px 0 0}
+@media(max-width:950px){:root{--w:320px}.analytics{display:none}}@media(max-width:700px){.shell{display:flex;flex-direction:column;height:auto;min-height:100dvh}.map-section{order:1;height:57dvh;min-height:360px;max-height:570px}.sidebar{order:2;min-height:550px;overflow:visible;border-top:1px solid #355469;border-right:0}.brand{padding:19px 18px}.brand h1{font-size:23px}.kpis{margin-top:13px}.sidebar-body{overflow:visible}.topbar{top:11px;left:11px;right:11px}.top-info{padding:10px 12px}.top-info .small{font-size:10px}.top-control{padding:9px}.map-note{bottom:14px;left:11px;max-width:min(290px,calc(100% - 25px));padding:9px 11px}.sidebar-foot{padding-bottom:30px}.list{grid-template-columns:1fr 1fr}.place{min-height:61px}.place .label{font-size:11px}.selected{margin:10px 0}}
+@media(max-width:390px){.list{grid-template-columns:1fr}.map-note{max-width:240px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <header class="brand">
+    <div class="eyebrow"><span class="signal"></span> Observatório viário · São Paulo</div>
+    <h1>ULTRON <span>SP</span></h1>
+    <p class="subtitle">Panorama informativo da fiscalização fixa de velocidade. Dados públicos, sem rastreamento de visitantes.</p>
+    <div class="kpis">
+      <div class="kpi"><div class="num" id="stat-total">—</div><small>Registros de SP</small></div>
+      <div class="kpi"><div class="num" id="stat-cities">—</div><small>Municípios com registros</small></div>
+      <div class="kpi"><div class="num" id="stat-known">—</div><small>Com velocidade cadastrada</small></div>
+      <div class="kpi"><div class="num" id="stat-unknown">—</div><small>Sem velocidade informada</small></div>
+    </div>
+  </header>
+  <div class="sidebar-body">
+    <label class="search-label" for="lookup">Explorar os dados</label>
+    <div class="search-shell"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><input id="lookup" type="search" placeholder="Cidade ou nome de via..." autocomplete="off" aria-label="Pesquisar cidade ou via"></div>
+    <div class="tabs" role="group" aria-label="Tipo de pesquisa"><button id="tab-cities" type="button" class="active" aria-pressed="true">Municípios</button><button id="tab-roads" type="button" aria-pressed="false">Vias</button></div>
+    <section class="selected" id="selected" hidden aria-live="polite"><div class="overline" id="selection-type">SELEÇÃO</div><h2 id="selection-title"></h2><p id="selection-details"></p><button type="button" id="clear">Limpar seleção</button></section>
+    <div class="listhead"><b id="list-title">Municípios</b><span id="list-count">—</span></div>
+    <div class="list" id="items" aria-live="polite"></div>
+    <button id="more" class="load-more" type="button" hidden>Mostrar mais</button>
+    <p class="hint">Use os filtros para comparar municípios e vias. O mapa mostra concentrações aproximadas por cidade, não a posição de cada equipamento.</p>
+  </div>
+  <footer class="sidebar-foot">
+    <div class="credit"><strong>DADOS ABERTOS · ODbL</strong><span>Snapshot 06/11/2026</span></div>
+    <p>Fontes: <a href="https://www.radarnobrasil.com/fontes-de-dados" target="_blank" rel="noopener">Radar no Brasil</a>, <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> e ANTT.</p>
+    <p>Mapa informativo; registros não garantem operação atual. Os limites oficiais indicados nas placas prevalecem.</p>
+  </footer>
+</aside>
+<main class="map-section" aria-label="Mapa informativo de São Paulo">
+  <div id="map" role="img" aria-label="Mapa com agrupamentos aproximados por município"></div>
+  <div class="map-fallback" id="map-fallback"><div class="inner"><strong>Carregando mapa…</strong><p>Se o mapa não carregar, as estatísticas e a pesquisa continuam disponíveis.</p></div></div>
+  <div class="topbar"><div class="top-info"><div class="big" id="map-heading">São Paulo · visão geral</div><div class="small" id="map-subheading">Dados municipais agregados · 2026</div></div><button class="top-control" id="reset-map" type="button">Ver todo o estado</button></div>
+  <div class="map-note"><div class="dots"><span class="dot"></span><strong>Concentração por município</strong></div><p>Círculos representam contagens agregadas. A posição é aproximada e não corresponde a um radar específico.</p></div>
+  <div class="analytics" id="analytics"><h3>Velocidades cadastradas no conjunto</h3><div id="speed-bars"></div><p class="sub">São valores associados a equipamentos, não limites gerais de cada rodovia.</p></div>
+</main>
+</div>
+<script type="application/json" id="dataset">__EMBEDDED_DATA__</script>
+<script>
+'use strict';
+(() => {
+ const DATA=JSON.parse(document.getElementById('dataset').textContent);
+ const $=id=>document.getElementById(id), fmt=n=>Number(n).toLocaleString('pt-BR');
+ const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+ $('stat-total').textContent=fmt(DATA.total);$('stat-cities').textContent=fmt(DATA.city_count);
+ $('stat-known').textContent=fmt(DATA.with_speed);$('stat-unknown').textContent=fmt(DATA.without_speed);
+ let tab='cities',query='', selected=null,shown=20,map=null,maplibregl=null,popup=null;
+ const speedRows=DATA.speed_distribution.filter(d=>d.speed!=='Não informado').sort((a,b)=>b.count-a.count).slice(0,7);
+ for(const s of speedRows){const el=document.createElement('div');el.className='speed-row';
+  const unit=document.createElement('span');unit.textContent=s.speed+' km/h';const bar=document.createElement('div');bar.className='bar';const fill=document.createElement('span');fill.style.width=`${100*s.count/speedRows[0].count}%`;bar.append(fill);
+  const n=document.createElement('b');n.textContent=fmt(s.count);el.append(unit,bar,n);$('speed-bars').append(el);}
+ function selectionData(){if(!selected)return null;return (selected.type==='cities'?DATA.cities:DATA.roads).find(x=>x.name===selected.name)||null;}
+ function updateSelected(){const d=selectionData(),section=$('selected');if(!d){section.hidden=true;$('map-heading').textContent='São Paulo · visão geral';$('map-subheading').textContent=fmt(DATA.total)+' registros · '+fmt(DATA.city_count)+' municípios';return;}
+  section.hidden=false;$('selection-type').textContent=selected.type==='cities'?'Município':'Via cadastrada';$('selection-title').textContent=d.name;
+  const p=selected.type==='cities'?
+   `${fmt(d.count)} registros, dos quais ${fmt(d.with_speed)} com velocidade cadastrada. Vias mais frequentes: ${d.roads.slice(0,3).map(x=>x.name+' ('+fmt(x.count)+')').join('; ')}.`:
+   `${fmt(d.count)} registros distribuídos por ${fmt(d.cities.length)} municípios. Maiores concentrações: ${d.cities.slice(0,4).map(x=>x.name+' ('+fmt(x.count)+')').join('; ')}.`;
+  $('selection-details').textContent=p;$('map-heading').textContent=d.name;
+  $('map-subheading').textContent=`${fmt(d.count)} registros na seleção · pontos agrupados por município`;}
+ function matches(){const data=tab==='cities'?DATA.cities:DATA.roads;return data.filter(d=>norm(d.name).includes(norm(query)));}
+ function renderList(){const results=matches();$('list-title').textContent=tab==='cities'?'Municípios':'Vias';$('list-count').textContent=fmt(results.length)+' encontrados';$('items').replaceChildren();
+  if(!results.length){const m=document.createElement('p');m.className='hint';m.textContent='Nenhum resultado. Tente uma pesquisa mais curta.';$('items').append(m);}
+  for(const item of results.slice(0,shown)){
+   const b=document.createElement('button');b.type='button';b.className='place'+(selected?.type===tab&&selected?.name===item.name?' active':'');
+   b.setAttribute('aria-pressed',String(selected?.type===tab&&selected?.name===item.name));const title=document.createElement('span');title.className='label';title.textContent=item.name;
+   const subt=document.createElement('span');subt.className='sublabel';subt.textContent=tab==='cities'?`${fmt(item.with_speed)} com velocidade`:`${fmt(item.cities.length)} municípios`;
+   title.append(subt);const count=document.createElement('span');count.className='pill';count.textContent=fmt(item.count);b.append(title,count);
+   b.addEventListener('click',()=>selectItem(tab,item.name));$('items').append(b);
+  }
+  $('more').hidden=results.length<=shown;
+ }
+ function makeFeatures(){const roadCityCounts=selected?.type==='roads'?new Map((selectionData()?.cities||[]).map(c=>[c.name,c.count])):null;
+  return {type:'FeatureCollection',features:DATA.cities.filter(c=>c.lat!==null&&c.lon!==null).map(c=>({type:'Feature',geometry:{type:'Point',coordinates:[c.lon,c.lat]},properties:{name:c.name,count:c.count,matchCount:roadCityCounts?roadCityCounts.get(c.name)||0:c.count,selected:selected?.type==='cities'&&selected?.name===c.name?1:0}}))};}
+ function updateMap(){if(!map||!map.getSource('cities'))return;map.getSource('cities').setData(makeFeatures());}
+ function selectItem(type,name){selected={type,name};updateSelected();renderList();updateMap();const d=selectionData();if(!map||!d)return;
+  if(type==='cities'&&Number.isFinite(d.lon)&&Number.isFinite(d.lat)){map.flyTo({center:[d.lon,d.lat],zoom:9.2,essential:true});}
+  else if(type==='roads'){
+   const names=new Set(d.cities.map(c=>c.name));const matches=DATA.cities.filter(c=>names.has(c.name)&&c.lat!==null&&c.lon!==null);
+   if(matches.length>1){let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;for(const c of matches){minX=Math.min(minX,c.lon);maxX=Math.max(maxX,c.lon);minY=Math.min(minY,c.lat);maxY=Math.max(maxY,c.lat);}map.fitBounds([[minX-.1,minY-.1],[maxX+.1,maxY+.1]],{padding:70,maxZoom:10,essential:true});}
+   else if(matches.length)map.flyTo({center:[matches[0].lon,matches[0].lat],zoom:9,essential:true});
+  }
+ }
+ $('lookup').addEventListener('input',e=>{query=e.target.value;shown=20;renderList();});
+ $('tab-cities').addEventListener('click',()=>switchTab('cities'));$('tab-roads').addEventListener('click',()=>switchTab('roads'));
+ function switchTab(next){tab=next;shown=20;for(const key of ['cities','roads']){$('tab-'+key).classList.toggle('active',key===next);$('tab-'+key).setAttribute('aria-pressed',String(key===next));}renderList();}
+ $('more').addEventListener('click',()=>{shown+=35;renderList();});
+ $('clear').addEventListener('click',()=>{selected=null;updateSelected();renderList();updateMap();});
+ $('reset-map').addEventListener('click',()=>{selected=null;query='';$('lookup').value='';updateSelected();renderList();updateMap();fitState();});
+ function fitState(){if(map)map.fitBounds([[-53.2,-25.3],[-44.6,-19.75]],{padding:70,duration:700,maxZoom:7.2});}
+ updateSelected();renderList();
+ async function setupMap(){try{
+   maplibregl=await import('https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.mjs');
+   map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[-48.3,-22.5],zoom:6,attributionControl:true});
+   map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
+   map.on('load',()=>{
+     $('map-fallback').hidden=true;
+     map.addSource('cities',{type:'geojson',data:makeFeatures()});
+     map.addLayer({id:'city-halos',type:'circle',source:'cities',paint:{'circle-radius':['interpolate',['linear'],['get','count'],1,8,20,14,100,23,887,37], 'circle-color':'#60ddc6','circle-opacity':['case',['>', ['get','matchCount'],0],0.13,0.025],'circle-stroke-color':'#67e9d6','circle-stroke-opacity':0}});
+     map.addLayer({id:'city-circles',type:'circle',source:'cities',paint:{'circle-radius':['interpolate',['linear'],['get','count'],1,4,20,7,100,12,887,23], 'circle-color':['case',['==',['get','selected'],1],'#ffcf84','#4ab5a7'], 'circle-opacity':['case',['>', ['get','matchCount'],0],0.95,0.12], 'circle-stroke-width':1.3,'circle-stroke-color':'#d3fffb'}});
+     map.addLayer({id:'city-counts',type:'symbol',source:'cities',minzoom:7.6,layout:{'text-field':['to-string',['get','count']],'text-size':10,'text-font':['Noto Sans Regular'],'text-allow-overlap':false},paint:{'text-color':'#eafffa','text-halo-color':'#07111c','text-halo-width':1.5}});
+     map.on('mouseenter','city-circles',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','city-circles',()=>map.getCanvas().style.cursor='');
+     map.on('click','city-circles',e=>{const f=e.features?.[0];if(!f)return;const name=f.properties.name;selectItem('cities',name);
+       if(popup)popup.remove();const el=document.createElement('div');const a=document.createElement('div');a.className='popup-city';a.textContent=name;const b=document.createElement('div');b.className='popup-count';b.textContent=fmt(f.properties.count)+' registros agregados';el.append(a,b);
+       popup=new maplibregl.Popup({offset:18}).setLngLat(f.geometry.coordinates).setDOMContent(el).addTo(map);});
+     fitState();
+   });
+   map.on('error',ev=>{if(!map.loaded()&&ev.error){const inner=$('map-fallback').querySelector('.inner');inner.textContent='O mapa não pôde ser carregado. A pesquisa e as estatísticas continuam disponíveis.';}});
+ }catch(err){const inner=$('map-fallback').querySelector('.inner');inner.textContent='Mapa indisponível nesta conexão. Você ainda pode explorar os municípios e as vias na lista.';}}
+ setupMap();
+})();
+</script>
+</body></html>
