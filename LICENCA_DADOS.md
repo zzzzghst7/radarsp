@@ -8,3 +8,11 @@ Dados derivados de © OpenStreetMap contributors (ODbL), cadastro aberto da ANTT
 - https://opendatacommons.org/licenses/odbl/1-0/
 
 O arquivo `data/sp_dashboard.json` é disponibilizado sob a licença Open Database License (ODbL) 1.0. As contagens são informativas; não identificam a situação operacional de cada dispositivo. Preserve a atribuição e observe as obrigações de compartilhamento quando publicar bases derivadas.
+
+## Arquivo `data/radares_mapa.geojson`
+
+Base derivada, gerada por `tools/atualizar_radares_osm_antt.py` a partir de © OpenStreetMap contributors (ODbL 1.0),
+dados abertos da ANTT (Creative Commons Atribuição), cadastro da CET-SP e Bunda de Urso / Challado.
+Por conter dados do OpenStreetMap, este arquivo é disponibilizado sob a **ODbL 1.0**: preserve a atribuição aos
+colaboradores do OpenStreetMap e compartilhe obras derivadas sob a mesma licença. O mapa exibe a atribuição no canto inferior direito.
+
