@@ -32,13 +32,14 @@
     drawMarkers();
     if(state.map)state.map.flyTo({center:coords,zoom:Math.max(11,state.map.getZoom()),essential:true});
     status((which==='origin'?'Origem':'Destino')+' definido. '+(state.origin&&state.dest?'Pronto para calcular o trajeto.':'Defina o outro ponto.'));
+    if(state.origin&&state.dest&&!state.busy)queueMicrotask(()=>{if(state.origin&&state.dest&&!state.busy)route();});
   }
   function resetEndpoint(which){
     if(state[which]){state[which]=null;clearRoute();drawMarkers();}
     buttonState();
   }
   function clearRoute(){
-    state.routes=[];state.selectedRoute=0;
+    state.routes=[];state.selectedRoute=0;leaveRouteView();
     $('nav-result').hidden=true;
     if(state.map&&state.map.getSource('ultron-nav-route'))state.map.getSource('ultron-nav-route').setData(emptyFeature());
   }
@@ -196,10 +197,10 @@
     renderInstructions(route);
     if(state.map){
       const s=state.map.getSource('ultron-nav-route');if(s)s.setData({type:'FeatureCollection',features:[routeFeature(route)]});
-      const bounds=new state.lib.LngLatBounds();for(const c of route.geometry.coordinates)bounds.extend(c);
-      state.map.fitBounds(bounds,{padding:Math.min(window.innerWidth,window.innerHeight)<500?34:80,maxZoom:14,duration:850});
+
     }
     status('Trajeto calculado. Tempo aproximado sem trânsito em tempo real.');
+    enterRouteView();
   }
   async function route(){
     if(!state.origin||!state.dest){status('Escolha origem e destino antes de calcular.','warning');return;}
@@ -253,11 +254,52 @@
     }
     map.on('click',evt=>{if(!state.choosing)return;const which=state.choosing;
       setEndpoint(which,[evt.lngLat.lng,evt.lngLat.lat],`Ponto marcado (${evt.lngLat.lat.toFixed(5)}, ${evt.lngLat.lng.toFixed(5)})`);stopMapSelection();});
-    drawMarkers();if(state.routes.length)showRoute(state.selectedRoute);
+    drawMarkers();toggleMunicipalLayers(false);if(state.routes.length)enterRouteView();
+  }
+  function toggleMunicipalLayers(visible){
+    if(!state.map)return;
+    for(const name of ['city-halos','city-circles','city-counts']){
+      if(state.map.getLayer(name))state.map.setLayoutProperty(name,'visibility',visible?'visible':'none');
+    }
+  }
+  function resizeMap(){if(state.map){requestAnimationFrame(()=>state.map.resize());}}
+  function openDrawer(which='navigate'){
+    const shell=document.querySelector('.shell'),panel=$('app-panel');
+    if(!shell||!panel)return;
+    setMode(which);
+    shell.classList.add('drawer-open');
+    panel.inert=false;panel.setAttribute('aria-hidden','false');
+    resizeMap();
+  }
+  function closeDrawer(){
+    const shell=document.querySelector('.shell'),panel=$('app-panel');
+    shell?.classList.remove('drawer-open');
+    if(panel){panel.inert=true;panel.setAttribute('aria-hidden','true');}
+    stopMapSelection();resizeMap();
+  }
+  function enterRouteView(){
+    const route=state.routes[state.selectedRoute];
+    if(!route)return;
+    const shell=document.querySelector('.shell');shell?.classList.add('route-active');
+    $('route-hud').hidden=false;
+    $('route-hud-dest').textContent=short(state.dest?.label||'Destino',75);
+    $('route-hud-metrics').textContent=`${formatKm(route.distance)} · ${formatDur(route.duration)} · estimativa sem trânsito`;
+    closeDrawer();
+    if(state.map){requestAnimationFrame(()=>{state.map.resize();const b=new state.lib.LngLatBounds();for(const c of route.geometry.coordinates)b.extend(c);state.map.fitBounds(b,{padding:{top:105,bottom:80,left:35,right:35},maxZoom:14,duration:650});});}
+  }
+  function leaveRouteView(){
+    document.querySelector('.shell')?.classList.remove('route-active');
+    $('route-hud').hidden=true;
   }
   function init(){
     $('mode-explore').addEventListener('click',()=>setMode('explore'));
     $('mode-navigate').addEventListener('click',()=>setMode('navigate'));
+    $('dock-destination').addEventListener('click',()=>openDrawer('navigate'));
+    $('dock-about').addEventListener('click',()=>openDrawer('explore'));
+    $('close-panel').addEventListener('click',closeDrawer);
+    $('route-hud-edit').addEventListener('click',()=>openDrawer('navigate'));
+    $('route-hud-close').addEventListener('click',()=>{stopFollow();clearAll();closeDrawer();});
+    document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&document.querySelector('.shell')?.classList.contains('drawer-open'))closeDrawer();});
     $('nav-origin-search').addEventListener('click',()=>search('origin'));
     $('nav-dest-search').addEventListener('click',()=>search('dest'));
     for(const which of ['origin','dest']){
@@ -276,17 +318,22 @@
     window.addEventListener('ultron:mapready',evt=>mountMap(evt.detail.map,evt.detail.maplibregl));
     window.addEventListener('pagehide',stopFollow);
     buttonState();
+    setMode('navigate');
   }
   function setMode(which){
     const on=which==='navigate';
-    document.querySelector('.shell')?.classList.toggle('nav-active',on);
+    const shell=document.querySelector('.shell');
+    shell?.classList.toggle('nav-active',on);
+    shell?.classList.toggle('explore-mode',!on);
     $('explore-panel').hidden=on;
     $('navigation-panel').hidden=!on;
+    $('info-footer').hidden=on;
+    toggleMunicipalLayers(!on);
     $('mode-explore').classList.toggle('active',!on);
     $('mode-navigate').classList.toggle('active',on);
     $('mode-explore').setAttribute('aria-pressed',String(!on));
     $('mode-navigate').setAttribute('aria-pressed',String(on));
-    if(state.map){state.map.resize();if(on&&state.routes.length)showRoute(state.selectedRoute);}
+    resizeMap();
     if(!on){stopMapSelection();stopFollow();}
   }
   init();

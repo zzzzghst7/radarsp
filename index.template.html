@@ -56,25 +56,99 @@
 .nav-map-pin{width:29px;height:29px;border-radius:50%;background:var(--pin-color);display:grid;place-items:center;border:3px solid #052a36;color:#08252e;font-weight:950;font-size:13px;box-shadow:0 3px 14px #00121d99;cursor:default}
 .nav-finish-buttons button.active{border-color:#6de1ce;color:#6de1ce}
 @media(max-width:700px){.mode-tabs{margin-bottom:13px}.nav-intro{margin-bottom:12px}}
+
+/* V8 — mapa em tela cheia; painel apenas sob demanda. */
+:root{--w:390px}html,body{height:100%;overflow:hidden}
+.shell,.shell.nav-active{display:block!important;height:100dvh!important;min-height:0!important;width:100%;position:relative}
+.map-section{position:absolute!important;inset:0!important;order:unset!important;width:100%;height:100dvh!important;min-height:0!important;max-height:none!important}
+#map{inset:0}
+.sidebar{position:fixed!important;z-index:10;top:15px;left:15px;bottom:15px;width:min(392px,calc(100vw - 30px));height:auto;max-height:calc(100dvh - 30px);border:1px solid #375364!important;border-radius:19px;box-shadow:0 18px 70px #03101edb;overflow:hidden;display:flex!important;flex-direction:column;min-height:0!important;transform:translateX(calc(-100% - 26px));visibility:hidden;pointer-events:none;transition:transform .25s ease,visibility .25s ease;background:#0d1b2aee;backdrop-filter:blur(18px)}
+.shell.drawer-open .sidebar{transform:translateX(0);visibility:visible;pointer-events:auto}
+.brand{padding:16px 18px!important;background:#102334d9;border-bottom:1px solid var(--line)}
+.brand-inline{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.eyebrow{font-size:13px;letter-spacing:.12em;font-weight:900}
+.brand-sp{color:#6de1ce}
+.close-panel{color:#dcf1f4;background:#1c3343;border:1px solid #3a5c68;border-radius:9px;width:35px;height:35px;display:grid;place-items:center;font-size:15px}
+.sidebar-body{padding:16px 17px 24px;overflow:auto!important;min-height:0}
+.mode-tabs{margin:0 0 16px!important}
+.nav-heading{margin:3px 0 5px;font-size:18px}
+.nav-intro{margin-bottom:13px}
+.explore-title{font-size:17px;font-weight:850;margin:0 0 6px;color:#f3fffe}
+.explore-subtitle{font-size:11px;color:#a9c0cb;line-height:1.55;margin:0 0 16px}
+.kpis{margin:0 0 21px!important;gap:8px}
+.kpi{padding:12px 11px}
+.kpi .num{font-size:21px}
+.sidebar-foot{display:none!important}
+.shell.drawer-open.explore-mode .sidebar-foot{display:block!important;padding:12px 17px 16px}
+.nav-help{margin-bottom:6px}
+.quiet-logo{position:absolute;left:20px;top:20px;z-index:3;display:flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid #34536299;border-radius:99px;background:#0c1b29bd;box-shadow:0 6px 24px #03131b44;backdrop-filter:blur(10px);font-size:11px;font-weight:900;letter-spacing:.12em;pointer-events:none;color:#f3fbfe}
+.quiet-logo strong{color:#6de1ce;font-weight:900}
+.quiet-logo .signal{height:6px;width:6px;box-shadow:0 0 0 4px #6de1ce16}
+.map-dock{position:absolute;z-index:7;bottom:max(23px,env(safe-area-inset-bottom) + 15px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:8px;border:1px solid #46677b66;border-radius:20px;background:#0d1e2beb;backdrop-filter:blur(22px);box-shadow:0 14px 40px #0009}
+.dock-btn{border:1px solid #3a5c6c;border-radius:14px;padding:15px 24px;display:flex;align-items:center;justify-content:center;gap:11px;font-weight:850;font-size:14px;min-height:54px;white-space:nowrap;transition:transform .15s,background .15s}
+.dock-btn:active{transform:scale(.97)}
+.dock-primary{background:#6de1ce;border-color:#7cf3df;color:#073038;min-width:178px}
+.dock-primary:hover{background:#92fae8}
+.dock-outline{background:#1a3141;color:#e0f5f4;min-width:118px}
+.dock-outline:hover{background:#25465a}
+.bang-icon{width:21px;height:21px;border:2px solid currentColor;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:950;line-height:1}
+.shell.drawer-open .map-dock,.shell.route-active .map-dock{display:none!important}
+.map-note,.analytics,.topbar{display:none!important}
+.shell.explore-mode .map-note,.shell.explore-mode .analytics{display:block!important}
+.shell.explore-mode .topbar{display:flex!important;top:68px;left:auto;right:20px}
+.shell.explore-mode .top-info{display:none}
+.shell.nav-active .analytics,.shell.nav-active .map-note,.shell.nav-active .topbar{display:none!important}
+.maplibregl-ctrl-bottom-right{bottom:9px!important;right:8px!important}
+.route-hud{position:absolute;z-index:8;top:20px;left:50%;transform:translateX(-50%);width:min(590px,calc(100vw - 36px));border:1px solid #466979;border-radius:17px;padding:12px 14px;display:flex;gap:12px;align-items:center;justify-content:space-between;background:#0c1d2df1;backdrop-filter:blur(20px);box-shadow:0 9px 35px #0009}
+.route-hud[hidden]{display:none!important}
+.route-hud-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.route-hud-label{color:#6de1ce;font-size:9px;font-weight:900;letter-spacing:.14em}
+.route-hud-copy strong{font-size:13px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#route-hud-metrics{font-size:11px;color:#bbd1dd}
+.route-hud-actions{display:flex;gap:7px;flex:none}
+.route-hud-actions button{font-size:11px;font-weight:750;border:1px solid #476577;background:#213a4a;color:#e6f4fa;border-radius:9px;padding:10px 11px}
+.route-hud-actions button:last-child{background:#17303b;color:#f2cbbe}
+.shell.route-active .quiet-logo{display:none}
+.shell.drawer-open .route-hud{display:none!important}
+@media(max-width:700px){
+.sidebar{top:auto;left:0;right:0;bottom:0;width:100%;height:min(80dvh,760px);max-height:calc(100dvh - 38px);border-radius:22px 22px 0 0!important;border-bottom:0!important;transform:translateY(110%);}
+.shell.drawer-open .sidebar{transform:translateY(0)}
+.sidebar-body{padding:14px 17px 24px;overflow:auto!important}
+.brand{padding:12px 18px!important}
+.quiet-logo{top:13px;left:13px;padding:8px 11px}
+.map-dock{bottom:max(17px,env(safe-area-inset-bottom) + 11px);padding:6px;border-radius:18px;gap:7px;width:calc(100% - 28px);max-width:420px}
+.dock-btn{flex:1;min-width:0;padding:12px 15px;font-size:13px;min-height:53px}
+.dock-primary{flex:1.65}
+.route-hud{top:12px;left:12px;transform:none;width:calc(100% - 24px);padding:10px 11px;gap:8px}
+.route-hud-copy strong{font-size:12px;max-width:175px}
+.route-hud-actions button{font-size:10px;padding:9px 8px}
+.shell.explore-mode .topbar{top:14px;right:12px}
+.shell.explore-mode .map-note,.shell.explore-mode .analytics{display:none!important}
+.list{grid-template-columns:1fr 1fr}
+}
+@media(max-width:370px){.route-hud-actions button{padding:8px 6px}.route-hud-copy strong{max-width:120px}}
+@media(prefers-reduced-motion:reduce){.sidebar{transition:none}}
+
 </style>
 </head>
 <body>
-<div class="shell">
-<aside class="sidebar">
+<div class="shell nav-active">
+<aside class="sidebar" id="app-panel" aria-hidden="true" inert>
   <header class="brand">
-    <div class="eyebrow"><span class="signal"></span> Observatório viário · São Paulo</div>
-    <h1>ULTRON <span>SP</span></h1>
-    <p class="subtitle">Panorama informativo da fiscalização fixa de velocidade. Dados públicos, sem rastreamento de visitantes.</p>
-    <div class="kpis">
-      <div class="kpi"><div class="num" id="stat-total">—</div><small>Registros de SP</small></div>
-      <div class="kpi"><div class="num" id="stat-cities">—</div><small>Municípios com registros</small></div>
-      <div class="kpi"><div class="num" id="stat-known">—</div><small>Com velocidade cadastrada</small></div>
-      <div class="kpi"><div class="num" id="stat-unknown">—</div><small>Sem velocidade informada</small></div>
-    </div>
+    <div class="brand-inline"><div class="eyebrow"><span class="signal"></span> ULTRON <span class="brand-sp">SP</span></div>
+      <button type="button" id="close-panel" class="close-panel" aria-label="Fechar painel" title="Fechar painel">✕</button></div>
   </header>
   <div class="sidebar-body">
-    <div class="mode-tabs" role="group" aria-label="Modo de uso"><button type="button" id="mode-explore" class="active" aria-pressed="true">Explorar dados</button><button type="button" id="mode-navigate" aria-pressed="false">Navegação</button></div>
-    <section id="explore-panel">
+    <div class="mode-tabs" role="group" aria-label="Modo de uso"><button type="button" id="mode-navigate" class="active" aria-pressed="true">Navegação</button><button type="button" id="mode-explore" aria-pressed="false">Explorar dados</button></div>
+    <section id="explore-panel" hidden>
+      <h2 class="explore-title">Explorar dados</h2>
+      <p class="explore-subtitle">Panorama informativo da fiscalização fixa de velocidade em São Paulo. Dados públicos, sem rastreamento de visitantes.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="num" id="stat-total">—</div><small>Registros de SP</small></div>
+        <div class="kpi"><div class="num" id="stat-cities">—</div><small>Municípios com registros</small></div>
+        <div class="kpi"><div class="num" id="stat-known">—</div><small>Com velocidade cadastrada</small></div>
+        <div class="kpi"><div class="num" id="stat-unknown">—</div><small>Sem velocidade informada</small></div>
+      </div>
     <label class="search-label" for="lookup">Explorar os dados</label>
     <div class="search-shell"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><input id="lookup" type="search" placeholder="Cidade ou nome de via..." autocomplete="off" aria-label="Pesquisar cidade ou via"></div>
     <div class="tabs" role="group" aria-label="Tipo de pesquisa"><button id="tab-cities" type="button" class="active" aria-pressed="true">Municípios</button><button id="tab-roads" type="button" aria-pressed="false">Vias</button></div>
@@ -84,9 +158,9 @@
     <button id="more" class="load-more" type="button" hidden>Mostrar mais</button>
     <p class="hint">Use os filtros para comparar municípios e vias. O mapa mostra concentrações aproximadas por cidade, não a posição de cada equipamento.</p>
     </section>
-    <section id="navigation-panel" hidden aria-label="Planejamento de trajetos">
+    <section id="navigation-panel" aria-label="Planejamento de trajetos">
       <h2 class="nav-heading">Planejar um trajeto</h2>
-      <p class="nav-intro">Pesquise endereços e lugares ou marque pontos no mapa. Prévia rodoviária, sem dados de trânsito ao vivo.</p>
+      <p class="nav-intro">Escolha origem e destino. O mapa ocupará a tela inteira quando a rota estiver pronta.</p>
       <label class="nav-label" for="nav-origin">A · Origem</label>
       <div class="nav-search-line"><input id="nav-origin" placeholder="Ex.: Pinheiros, São Paulo" autocomplete="off"><button id="nav-origin-search" type="button">Buscar</button></div>
       <div class="nav-tools"><button id="nav-gps" type="button">Usar meu GPS</button><button id="nav-origin-pick" type="button">Marcar no mapa</button></div>
@@ -107,7 +181,7 @@
       <p class="nav-help">Cálculo por OSRM público e busca de lugares por Photon/OpenStreetMap. GPS opcional e somente com sua permissão. Esta prévia não faz recálculo automático, não considera trânsito em tempo real nem substitui navegação homologada ou sinalização.</p>
     </section>
   </div>
-  <footer class="sidebar-foot">
+  <footer class="sidebar-foot" id="info-footer" hidden>
     <div class="credit"><strong>DADOS ABERTOS · ODbL</strong><span>Snapshot 06/11/2026</span></div>
     <p>Fontes: <a href="https://www.radarnobrasil.com/fontes-de-dados" target="_blank" rel="noopener">Radar no Brasil</a>, <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> e ANTT.</p>
     <p>Mapa informativo; registros não garantem operação atual. Os limites oficiais indicados nas placas prevalecem.</p>
@@ -119,6 +193,20 @@
   <div class="topbar"><div class="top-info"><div class="big" id="map-heading">São Paulo · visão geral</div><div class="small" id="map-subheading">Dados municipais agregados · 2026</div></div><button class="top-control" id="reset-map" type="button">Ver todo o estado</button></div>
   <div class="map-note"><div class="dots"><span class="dot"></span><strong>Concentração por município</strong></div><p>Círculos representam contagens agregadas. A posição é aproximada e não corresponde a um radar específico.</p></div>
   <div class="analytics" id="analytics"><h3>Velocidades cadastradas no conjunto</h3><div id="speed-bars"></div><p class="sub">São valores associados a equipamentos, não limites gerais de cada rodovia.</p></div>
+  <div class="quiet-logo" aria-hidden="true"><span class="signal"></span> ULTRON <strong>SP</strong></div>
+  <nav class="map-dock" id="map-dock" aria-label="Ações principais">
+    <button type="button" id="dock-destination" class="dock-btn dock-primary" aria-label="Selecionar destino">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-8-8 18-2.6-7.4L3 11Z"/><path d="m10.4 13.6 4.8-4.8"/></svg>
+      <span>Destino</span>
+    </button>
+    <button type="button" id="dock-about" class="dock-btn dock-outline" aria-label="Sobre e explorar dados">
+      <span class="bang-icon" aria-hidden="true">!</span><span>Sobre</span>
+    </button>
+  </nav>
+  <section class="route-hud" id="route-hud" hidden aria-label="Rota ativa">
+    <div class="route-hud-copy"><span class="route-hud-label">TRAJETO</span><strong id="route-hud-dest">Destino selecionado</strong><span id="route-hud-metrics">—</span></div>
+    <div class="route-hud-actions"><button type="button" id="route-hud-edit" aria-label="Editar rota" title="Editar rota">Editar</button><button type="button" id="route-hud-close" aria-label="Encerrar rota" title="Encerrar rota">Encerrar</button></div>
+  </section>
 </main>
 </div>
 <script type="application/json" id="dataset">__EMBEDDED_DATA__</script>
@@ -188,7 +276,8 @@
      map.on('click','city-circles',e=>{if(window.__ultronNavMapSelection)return;const f=e.features?.[0];if(!f)return;const name=f.properties.name;selectItem('cities',name);
        if(popup)popup.remove();const el=document.createElement('div');const a=document.createElement('div');a.className='popup-city';a.textContent=name;const b=document.createElement('div');b.className='popup-count';b.textContent=fmt(f.properties.count)+' registros agregados';el.append(a,b);
        popup=new maplibregl.Popup({offset:18}).setLngLat(f.geometry.coordinates).setDOMContent(el).addTo(map);});
-     fitState();
+     if(document.querySelector('.shell')?.classList.contains('nav-active'))map.jumpTo({center:[-46.65,-23.55],zoom:10});
+     else fitState();
      window.dispatchEvent(new CustomEvent('ultron:mapready',{detail:{map,maplibregl}}));
    });
    map.on('error',ev=>{if(!map.loaded()&&ev.error){const inner=$('map-fallback').querySelector('.inner');inner.textContent='O mapa não pôde ser carregado. A pesquisa e as estatísticas continuam disponíveis.';}});
