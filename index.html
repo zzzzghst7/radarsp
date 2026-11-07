@@ -130,7 +130,7 @@
 @media(prefers-reduced-motion:reduce){.sidebar{transition:none}}
 
 
-/* V9 — orientação por GPS com acompanhamento pausável; velocímetro independente da base de radares */
+/* V10 — orientação por GPS com acompanhamento pausável; velocímetro independente da base de radares */
 .speed-hud{position:absolute;z-index:6;left:18px;bottom:max(94px,env(safe-area-inset-bottom) + 84px);border:1px solid #46677b80;border-radius:16px;background:#0d1e2be9;backdrop-filter:blur(18px);padding:10px 14px 9px;min-width:122px;box-shadow:0 10px 24px #0007;color:#f1fafb;pointer-events:none}
 .speed-hud-top{display:flex;gap:5px;align-items:baseline;font-variant-numeric:tabular-nums}
 #speed-value{font-size:36px;font-weight:900;letter-spacing:-.045em;line-height:1.05}
@@ -156,6 +156,39 @@
 .shell.route-active .speed-hud{bottom:max(17px,env(safe-area-inset-bottom) + 10px)}
 .shell.route-active .map-recenter{bottom:max(25px,env(safe-area-inset-bottom) + 18px)}
 }
+
+
+
+/* V10: simulação virtual em tela cheia. Nunca conecta o marcador ao GPS. */
+.sim-panel{position:absolute;z-index:8;left:50%;bottom:max(104px,env(safe-area-inset-bottom) + 97px);transform:translateX(-50%);width:min(545px,calc(100% - 28px));background:#0b1d2df2;border:1px solid #4c7781;border-radius:17px;box-shadow:0 15px 45px #000a;backdrop-filter:blur(22px);padding:12px 15px 13px}
+.sim-panel[hidden]{display:none!important}
+.sim-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
+.sim-name{display:flex;align-items:center;gap:7px;color:#92f4e2;font-size:10px;letter-spacing:.09em;font-weight:900}
+.sim-dot{width:7px;height:7px;border-radius:50%;background:#f3c36b;box-shadow:0 0 0 4px #f3c36b18}
+.sim-status{font-size:10px;color:#b8d1df;text-align:right;font-variant-numeric:tabular-nums}
+.sim-input-row{display:flex;align-items:center;gap:12px;margin:8px 0}
+.sim-input-row label{font-size:11px;color:#def6f4;font-weight:750;white-space:nowrap}
+#sim-speed{width:100%;min-width:0;accent-color:#6de1ce;cursor:pointer}
+#sim-speed-value{min-width:57px;text-align:right;color:#fff;font-size:13px;font-weight:900;font-variant-numeric:tabular-nums}
+.sim-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sim-actions{display:flex;align-items:center;gap:5px}
+.sim-actions button{border:1px solid #486d7f;border-radius:9px;padding:8px 10px;color:#ebf9fb;background:#1a384a;font-size:11px;font-weight:750;white-space:nowrap}
+.sim-actions button:first-child{color:#082b30;border-color:#6de1ce;background:#6de1ce}
+.sim-actions button:last-child{color:#ffccbc}
+.sim-progress{font-size:10px;line-height:1.35;color:#a9c7d5;text-align:right}
+.sim-virtual-note{font-size:9px;color:#8facbb;margin-top:7px;line-height:1.4}
+.sim-rate{background:#1a384a;border:1px solid #486d7f;border-radius:8px;color:#eafbf6;font-size:11px;padding:8px 4px;min-width:51px}
+.sim-map-pin{width:22px;height:22px;border-radius:50%;background:#f0d07a;border:4px solid #fff3bd;box-shadow:0 0 0 7px #f7dc8540,0 4px 14px #001a29b3;transform:translate(0,0)}
+.shell.drawer-open .sim-panel,.shell.explore-mode .sim-panel{display:none!important}
+@media(max-width:700px){
+ .sim-panel{bottom:max(86px,env(safe-area-inset-bottom) + 80px);width:calc(100% - 24px);padding:11px 12px}
+ .sim-input-row{gap:7px}.sim-input-row label{font-size:10px}
+ .sim-status{font-size:9px}.sim-actions button{font-size:10px;padding:8px 7px}
+ .sim-progress{font-size:9px}.sim-rate{font-size:10px;padding:8px 3px;min-width:43px}
+ .route-hud-actions{gap:4px}.route-hud-actions button{font-size:10px;padding:8px 6px}
+ .route-hud-copy strong{max-width:132px}
+}
+@media(max-width:370px){.sim-bottom{flex-wrap:wrap}.sim-progress{flex-basis:100%;text-align:left}.sim-input-row label{max-width:100px;white-space:normal}}
 
 </style>
 </head>
@@ -253,7 +286,20 @@
   </nav>
   <section class="route-hud" id="route-hud" hidden aria-label="Rota ativa">
     <div class="route-hud-copy"><span class="route-hud-label">TRAJETO</span><strong id="route-hud-dest">Destino selecionado</strong><span id="route-hud-metrics">—</span></div>
-    <div class="route-hud-actions"><button type="button" id="route-hud-edit" aria-label="Editar rota" title="Editar rota">Editar</button><button type="button" id="route-hud-close" aria-label="Encerrar rota" title="Encerrar rota">Encerrar</button></div>
+    <div class="route-hud-actions"><button type="button" id="route-hud-sim" aria-label="Iniciar simulação virtual" title="Simular trajeto">Simular</button><button type="button" id="route-hud-edit" aria-label="Editar rota" title="Editar rota">Editar</button><button type="button" id="route-hud-close" aria-label="Encerrar rota" title="Encerrar rota">Encerrar</button></div>
+  </section>
+  <section class="sim-panel" id="sim-panel" hidden aria-label="Simulação virtual do trajeto">
+    <div class="sim-header"><span class="sim-name"><span class="sim-dot"></span> SIMULAÇÃO VIRTUAL</span><span class="sim-status" id="sim-status">Pausado</span></div>
+    <div class="sim-input-row">
+      <label for="sim-speed">Velocidade de teste</label>
+      <input type="range" id="sim-speed" min="0" max="200" step="1" value="60" aria-label="Velocidade virtual de 0 a 200 quilômetros por hora">
+      <output id="sim-speed-value" for="sim-speed">60 km/h</output>
+    </div>
+    <div class="sim-bottom">
+      <div class="sim-actions"><button type="button" id="sim-play">Pausar</button><button type="button" id="sim-restart">Reiniciar</button><button type="button" id="sim-stop">Sair</button><select class="sim-rate" id="sim-rate" aria-label="Aceleração do relógio da simulação"><option value="1">1×</option><option value="10">10×</option><option value="30" selected>30×</option></select></div>
+      <span class="sim-progress" id="sim-progress">0% · trajeto não iniciado</span>
+    </div>
+    <div class="sim-virtual-note">Somente teste no mapa · não representa GPS nem velocidade real · reprodução do tempo ajustável</div>
   </section>
 </main>
 </div>
