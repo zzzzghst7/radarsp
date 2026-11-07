@@ -1,13 +1,17 @@
-name: ULTRON SP - Publicar painel de dados
+name: ULTRON SP - Atualizar radares e publicar
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'   # toda segunda-feira, 06:17 UTC
   push:
     branches: [main]
     paths:
       - index.html
+      - index.template.html
       - navegacao.js
-      - data/sp_dashboard.json
+      - data/**
+      - tools/**
       - .github/workflows/atualizar.yml
 
 permissions:
@@ -29,17 +33,41 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Testar o atualizador de radares
+        run: python -m unittest -v test_radares_osm_antt
+
+      # Baixa OpenStreetMap + ANTT e funde com a base local (CET-SP + Bunda de Urso).
+      # Se uma fonte estiver fora do ar, o script avisa e segue com o que tiver.
+      - name: Atualizar radares (OSM + ANTT)
+        run: |
+          python tools/atualizar_radares_osm_antt.py
+          {
+            echo '### Radares do mapa'
+            echo '```json'
+            cat data/radares_mapa_status.json
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Conferir pacote e preparar site
         shell: bash
         run: |
           test -s index.html
           test -s navegacao.js
           test -s data/sp_dashboard.json
+          test -s data/radares_mapa.geojson
           mkdir -p publicar/data
-          cp index.html publicar/index.html
-          cp navegacao.js publicar/navegacao.js
-          cp data/sp_dashboard.json publicar/data/sp_dashboard.json
+          cp index.html navegacao.js publicar/
+          cp data/sp_dashboard.json data/sp_zonas.geojson publicar/data/
+          cp data/radares_mapa.geojson data/radares_mapa_status.json publicar/data/
           touch publicar/.nojekyll
+
       - name: Configurar Pages
         uses: actions/configure-pages@v5
       - name: Enviar artefato
