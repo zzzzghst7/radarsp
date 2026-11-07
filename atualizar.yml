@@ -1,83 +1,24 @@
-name: Ultron V5 - Atualizar mapa e fontes
+name: ULTRON SP - Publicar painel de dados
 
 on:
   workflow_dispatch:
-  schedule:
-    # 09:17 UTC = 06:17 em São Paulo (UTC-3)
-    - cron: '17 9 * * *'
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - data/sp_dashboard.json
+      - .github/workflows/atualizar.yml
 
 permissions:
   contents: read
 
 concurrency:
-  group: sincronizacao-ultron-v5
+  group: ultron-sp-pages
   cancel-in-progress: false
 
 jobs:
-  sincronizar:
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    timeout-minutes: 22
-    steps:
-      - name: Baixar nosso repositório
-        uses: actions/checkout@v4
-
-      - name: Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Executar testes do sincronizador
-        run: python -m unittest -v test_frontend_v5 test_importar_bunda test_consolidar_fontes test_geojson test_sincronizador
-
-      - name: Verificar e sincronizar CSV da CET-SP
-        run: python sincronizar_radares.py
-
-      - name: Importar registros de SP do Bunda de Urso (sem GPS de visitantes)
-        shell: bash
-        run: |
-          if python importar_bunda.py --online; then
-            echo "API Bunda de Urso sincronizada com sucesso."
-          else
-            echo "::warning::API do Urso indisponível; snapshot anterior preservado."
-          fi
-
-      - name: Consolidar as fontes geográficas
-        run: python consolidar_fontes.py
-
-      - name: Publicar somente quando os dados mudarem
-        shell: bash
-        run: |
-          if [[ -n "$(git status --porcelain data/)" ]]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add data/
-            git commit -m "dados: sincronizar CET-SP e Urso"
-            git push
-          else
-            echo "Sem mudanças na base; nenhum commit."
-          fi
-
-      - name: Preparar arquivos para o site
-        shell: bash
-        run: |
-          mkdir -p publicar/data
-          cp index.html rotas.js tabela.html publicar/
-          cp data/radares_ativos.csv data/radares_ativos.geojson data/radares_consolidados.geojson data/consolidado_status.json data/resumo.json publicar/data/
-
-      - name: Configurar GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Empacotar painel para Pages
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: publicar
-
   publicar:
-    needs: sincronizar
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
       pages: write
       id-token: write
@@ -85,6 +26,23 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Publicar painel
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Conferir pacote e preparar site
+        shell: bash
+        run: |
+          test -s index.html
+          test -s data/sp_dashboard.json
+          mkdir -p publicar/data
+          cp index.html publicar/index.html
+          cp data/sp_dashboard.json publicar/data/sp_dashboard.json
+          touch publicar/.nojekyll
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+      - name: Enviar artefato
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: publicar
+      - name: Deploy no GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
