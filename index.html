@@ -71,7 +71,7 @@
  $('stat-total').textContent=fmt(DATA.total);$('stat-cities').textContent=fmt(DATA.city_count);
  $('stat-known').textContent=fmt(DATA.with_speed);$('stat-unknown').textContent=fmt(DATA.without_speed);
  let tab='cities',query='', selected=null,shown=20,map=null,maplibregl=null,popup=null;
- const speedRows=DATA.speed_distribution.filter(d=>d.speed!=='Não informado').sort((a,b)=>b.count-a.count).slice(0,7);
+ const speedRows=DATA.speed_distribution.filter(d=>d.speed!=='Não informado').sort((a,b)=>b.count-a.count).slice(0,10);
  for(const s of speedRows){const el=document.createElement('div');el.className='speed-row';
   const unit=document.createElement('span');unit.textContent=s.speed+' km/h';const bar=document.createElement('div');bar.className='bar';const fill=document.createElement('span');fill.style.width=`${100*s.count/speedRows[0].count}%`;bar.append(fill);
   const n=document.createElement('b');n.textContent=fmt(s.count);el.append(unit,bar,n);$('speed-bars').append(el);}
