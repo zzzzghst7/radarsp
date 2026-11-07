@@ -380,7 +380,7 @@ export function iniciarRotas(map, maplibregl) {
         const delay=Math.max(0,1100-(Date.now()-lastGeocodeRequestAt));
         if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
         if(current!==searchSerial || request.signal.aborted)return;
-        const params=new URLSearchParams({q,limit:'8',lang:'pt',countrycode:'BR',lat:String(lat),lon:String(lon)});
+        const params=new URLSearchParams({q,limit:'8',countrycode:'BR',lat:String(lat),lon:String(lon)});
         lastGeocodeRequestAt=Date.now();
         const timeout=setTimeout(()=>request.abort(),14000);
         let response;
