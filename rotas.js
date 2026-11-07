@@ -1,5 +1,5 @@
-// Ultron V5 — Planejador de rotas com busca textual de endereço (MapLibre + Nominatim + OSRM).
-// Nominatim: somente consultas iniciadas pelo usuário, no máximo 1 por segundo por navegador.
+// Ultron V5 — Rotas com busca por nomes de lugares e endereços (MapLibre + Photon + OSRM).
+// Photon: autocompletar moderado; para produção em escala, usar provedor com SLA.
 // Alertas locais de radares cadastrados; não consulta posição do usuário na API de dados.
 export function iniciarRotas(map, maplibregl) {
   const radarAlerts = iniciarAlertasRadares();
@@ -18,6 +18,9 @@ export function iniciarRotas(map, maplibregl) {
   let controller = null, serial = 0;
   let searchController = null, searchSerial = 0, lastGeocodeRequestAt = 0;
   const addressCache = new Map();
+  const searchDelay = {start:null,end:null};
+  const AUTOCOMPLETE_DELAY_MS = 750;
+  const MIN_QUERY_LENGTH = 3;
   // Navegação voluntária com avisos locais, sem gravação de histórico.
   let activeRoute = null; // geometria e duração retornadas pelo OSRM
   let gpsWatchId = null, lastFix = null, etaTimer = null;
@@ -329,72 +332,123 @@ export function iniciarRotas(map, maplibregl) {
     map.easeTo({center:coords, zoom:Math.max(map.getZoom(),13),duration:500});
     announce(`${which === 'start'?'Origem':'Destino'} confirmado. ${origin && destination?'Pronto para calcular a rota.':'Defina o outro endereço.'}`);
   }
-  async function searchAddress(which) {
-    const input = $(`route-${which}-input`);
-    const q = input.value.trim();
-    if (q.length < 3) return announce('Digite pelo menos 3 caracteres do endereço, com cidade ou bairro.');
-    const current = ++searchSerial;
+  // Photon encontra estabelecimentos, instituições, bairros, ruas e endereços.
+  // Usa apenas conteúdo textual da API (textContent), evitando interpretar HTML de resultados.
+  function labelPlace(feature) {
+    const p = feature.properties || {};
+    const street = [p.street,p.housenumber].filter(Boolean).join(', ');
+    const name = String(p.name || street || p.city || p.district || 'Local').trim();
+    const region = [street !== name ? street : null, p.district, p.city, p.state]
+      .filter(Boolean).join(' · ');
+    return {name,region,label: [name,region].filter(Boolean).join(' — ')};
+  }
+  function showSearchMessage(container,message) {
+    const el=document.createElement('div'); el.className='route-empty';
+    el.textContent=message; container.replaceChildren(el); container.hidden=false;
+  }
+  function addSearchCredit(container) {
+    const footer=document.createElement('small');
+    footer.style.cssText='display:block;padding:7px 10px;font-size:11px;opacity:.75';
+    const link=document.createElement('a');
+    link.href='https://www.openstreetmap.org/copyright';
+    link.target='_blank'; link.rel='noopener noreferrer';
+    link.textContent='© colaboradores do OpenStreetMap';
+    footer.append('Resultados: Photon · ',link); container.append(footer);
+  }
+  async function searchAddress(which,automatic=false) {
+    clearTimeout(searchDelay[which]); searchDelay[which]=null;
+    const input=$(`route-${which}-input`),q=input.value.trim();
+    if (q.length<MIN_QUERY_LENGTH) {
+      if(!automatic)announce('Digite pelo menos 3 caracteres de um lugar ou endereço.');
+      return;
+    }
+    const current=++searchSerial;
     searchController?.abort();
-    for (const field of ['start','end']) $(`route-${field}-search`).disabled = false;
-    const request = new AbortController(); searchController = request;
-    clearMatches(which);
-    const container = $(`route-${which}-results`);
-    const button = $(`route-${which}-search`);
-    button.disabled = true;
-    announce(`Buscando ${which === 'start' ? 'origem' : 'destino'}: ${q}...`);
+    const request=new AbortController(); searchController=request;
+    const container=$(`route-${which}-results`),button=$(`route-${which}-search`);
+    clearMatches(which); button.disabled=true;
+    showSearchMessage(container,'Buscando lugares...');
     try {
-      const cacheKey = q.toLocaleLowerCase('pt-BR');
-      let places = addressCache.get(cacheKey);
-      if (!places) {
-        // Uso público moderado: sem busca a cada tecla e, por navegador, <= 1 requisição/s.
-        const delay = Math.max(0, 1100 - (Date.now() - lastGeocodeRequestAt));
-        if (delay) await new Promise(resolve => setTimeout(resolve, delay));
-        if (current !== searchSerial || request.signal.aborted) return;
-        const params = new URLSearchParams({q,format:'jsonv2',addressdetails:'1',limit:'5',countrycodes:'br',viewbox:'-53.5,-19.6,-44.0,-25.7','accept-language':'pt-BR'});
-        lastGeocodeRequestAt = Date.now();
-        const timeout = setTimeout(() => request.abort(), 14000);
+      // Prioriza a região visualizada sem enviar a localização GPS com precisão exata.
+      const c=which==='end' && origin ? {lng:origin[0],lat:origin[1]} : map.getCenter();
+      const lat=Number(Number(c.lat).toFixed(2));
+      const lon=Number(Number(c.lng).toFixed(2));
+      const cacheKey=[q.toLocaleLowerCase('pt-BR'),lat,lon].join('|');
+      let matches=addressCache.get(cacheKey);
+      if (!matches) {
+        // API pública: não mais que uma busca remota a cada 1,1 segundo por aba.
+        const delay=Math.max(0,1100-(Date.now()-lastGeocodeRequestAt));
+        if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+        if(current!==searchSerial || request.signal.aborted)return;
+        const params=new URLSearchParams({q,limit:'8',lang:'pt',countrycode:'BR',lat:String(lat),lon:String(lon)});
+        lastGeocodeRequestAt=Date.now();
+        const timeout=setTimeout(()=>request.abort(),14000);
         let response;
-        try { response = await fetch('https://nominatim.openstreetmap.org/search?' + params.toString(), {signal:request.signal}); }
-        finally {clearTimeout(timeout);}
-        if (!response.ok) throw new Error(response.status === 429 ? 'Serviço de endereços ocupado. Tente novamente em alguns segundos.' : `Serviço de endereços indisponível (HTTP ${response.status}).`);
-        places = await response.json();
-        if (!Array.isArray(places)) throw new Error('Resposta inesperada do serviço de endereços.');
-        addressCache.set(cacheKey, places);
+        try {
+          response=await fetch('https://photon.komoot.io/api/?'+params.toString(),{
+            signal:request.signal,headers:{Accept:'application/json'}
+          });
+        } finally {clearTimeout(timeout);}
+        if(!response.ok)throw new Error(response.status===429 ?
+          'Muitas buscas. Tente novamente em instantes.' : `Serviço de lugares indisponível (HTTP ${response.status}).`);
+        const data=await response.json();
+        if(!Array.isArray(data.features))throw new Error('Resposta inesperada do serviço de lugares.');
+        matches=data.features;
+        if(addressCache.size>=80)addressCache.delete(addressCache.keys().next().value);
+        addressCache.set(cacheKey,matches);
       }
-      if (current !== searchSerial) return;
-      const valid = places.filter(x => Number.isFinite(Number(x.lon)) && Number.isFinite(Number(x.lat)) && x.display_name);
-      if (!valid.length) {
-        const msg = document.createElement('div'); msg.className = 'route-empty';
-        msg.textContent = 'Nenhum resultado. Tente incluir número, bairro, cidade e SP.';
-        container.append(msg); container.hidden = false;
-        announce('Endereço não encontrado.'); return;
+      if(current!==searchSerial || request.signal.aborted)return;
+      const valid=matches.filter(f=>f?.geometry?.type==='Point' &&
+        Array.isArray(f.geometry.coordinates) && f.geometry.coordinates.length>=2 &&
+        f.geometry.coordinates.slice(0,2).every(Number.isFinite) &&
+        Math.abs(f.geometry.coordinates[0])<=180 && Math.abs(f.geometry.coordinates[1])<=90);
+      container.replaceChildren();
+      if(!valid.length){
+        showSearchMessage(container,'Nenhum lugar encontrado. Tente o nome antigo, bairro ou cidade; nem todos os estabelecimentos estão no OpenStreetMap.');
+        announce('Nenhum lugar encontrado.'); return;
       }
-      for (const place of valid) {
-        const option = document.createElement('button'); option.type = 'button';
-        option.textContent = place.display_name;
-        option.addEventListener('click', () => {
-          // Seleção explícita evita calcular rota para endereço ambíguo.
-          updatePoint(which, [Number(place.lon), Number(place.lat)], place.display_name);
+      for(const feature of valid){
+        const place=labelPlace(feature),[lng,lat]=feature.geometry.coordinates;
+        const option=document.createElement('button');option.type='button';
+        option.className='route-place-option';
+        option.style.cssText='display:block;width:100%;text-align:left;white-space:normal;padding:10px 12px;cursor:pointer';
+        const title=document.createElement('strong');title.textContent=place.name;
+        const subtitle=document.createElement('span');subtitle.textContent=place.region;
+        subtitle.style.cssText='display:block;font-size:12px;font-weight:400;opacity:.75;margin-top:4px';
+        option.append(title,subtitle);
+        option.addEventListener('click',()=>{
+          input.value=place.name;
+          updatePoint(which,[lng,lat],place.label);
         });
         container.append(option);
       }
-      container.hidden = false;
-      announce(`Encontrados ${valid.length} resultados. Toque no endereço correto para confirmar.`);
-    } catch (err) {
-      if (current !== searchSerial) return;
-      announce(err.name === 'AbortError' ? 'Busca cancelada ou demorou demais.' : `Erro na busca: ${err.message}`);
-    } finally {
-      if (current === searchSerial) { button.disabled = false; searchController = null; }
+      addSearchCredit(container);container.hidden=false;
+      if(!automatic)announce(`${valid.length} lugares encontrados. Escolha o correto para confirmar.`);
+    }catch(err){
+      if(current!==searchSerial)return;
+      if(err.name!=='AbortError'){
+        showSearchMessage(container,'Não foi possível consultar lugares agora. Tente novamente.');
+        announce('Falha na busca: '+err.message);
+      }
+    }finally{
+      if(current===searchSerial){button.disabled=false;searchController=null;}
     }
   }
 
-  for (const which of ['start','end']) {
-    $(`route-${which}-search`).addEventListener('click', () => searchAddress(which));
-    $(`route-${which}-input`).addEventListener('keydown', ev => {
-      if (ev.key === 'Enter') { ev.preventDefault(); searchAddress(which); }
+  for(const which of ['start','end']){
+    const input=$(`route-${which}-input`);
+    input.placeholder=which==='end'?'Destino: mercado, faculdade, parque, endereço...':'Origem: lugar, endereço ou GPS';
+    input.setAttribute('autocomplete','off');
+    $(`route-${which}-search`).addEventListener('click',()=>searchAddress(which));
+    input.addEventListener('keydown',ev=>{
+      if(ev.key==='Enter'){ev.preventDefault();searchAddress(which);}
     });
-    $(`route-${which}-input`).addEventListener('input', () => {
+    input.addEventListener('input',()=>{
+      clearTimeout(searchDelay[which]);
       invalidateAddress(which);
+      if(input.value.trim().length>=MIN_QUERY_LENGTH){
+        searchDelay[which]=setTimeout(()=>searchAddress(which,true),AUTOCOMPLETE_DELAY_MS);
+      }
     });
   }
   toggle.addEventListener('click', () => {
@@ -419,6 +473,7 @@ export function iniciarRotas(map, maplibregl) {
   });
   $('route-clear').addEventListener('click', () => {
     searchSerial++;
+    for(const which of ['start','end'])clearTimeout(searchDelay[which]);
     searchController?.abort(); searchController = null;
     resetDrawnRoute();
     startPin?.remove(); endPin?.remove();
