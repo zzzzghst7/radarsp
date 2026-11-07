@@ -1,0 +1,66 @@
+{
+  "fonte": "CET-SP — Base_Locais_Fiscalizados (3).xlsx (arquivo enviado)",
+  "referencia_base": "Radar no Brasil — radares.csv (arquivo enviado)",
+  "conferencia_em": "2026-11-07",
+  "metodologia": "Comparação por distância geográfica, similaridade textual da via e velocidade; não confirma equipamentos físicos, pista ou sentido.",
+  "radar_no_brasil_sp": 2950,
+  "radar_no_brasil_municipio_sp": 887,
+  "cet_linhas_total": 2074,
+  "cet_com_desativacao": 1195,
+  "cet_sem_desativacao": 879,
+  "cet_correspondencia_provavel": 356,
+  "cet_revisao": 336,
+  "cet_sem_correspondencia_proxima": 187,
+  "criterios": {
+    "correspondencia_provavel": "Até 15 m, nome da via semelhante (similaridade ≥ 0,60) e velocidade compatível; sentidos distintos ainda podem existir.",
+    "revisao": "Até 60 m sem todos os critérios de correspondência provável; não somar nem descartar automaticamente.",
+    "sem_correspondencia_proxima": "Mais de 60 m do registro mais próximo; potencial lacuna, não prova de radar novo."
+  },
+  "distribuicao_cet_sem_desativacao": [
+    {
+      "velocidade_registrada": "50 km/h",
+      "registros": 557
+    },
+    {
+      "velocidade_registrada": "40 km/h",
+      "registros": 214
+    },
+    {
+      "velocidade_registrada": "60/50 km/h",
+      "registros": 29
+    },
+    {
+      "velocidade_registrada": "90/60 km/h",
+      "registros": 28
+    },
+    {
+      "velocidade_registrada": "30 km/h",
+      "registros": 22
+    },
+    {
+      "velocidade_registrada": "70/60 km/h",
+      "registros": 13
+    },
+    {
+      "velocidade_registrada": "60/50/50 km/h",
+      "registros": 7
+    },
+    {
+      "velocidade_registrada": "60 km/h",
+      "registros": 5
+    },
+    {
+      "velocidade_registrada": "70 km/h",
+      "registros": 2
+    },
+    {
+      "velocidade_registrada": "50 KM/H",
+      "registros": 1
+    },
+    {
+      "velocidade_registrada": "50/40 km/h",
+      "registros": 1
+    }
+  ],
+  "limites": "Dados do DER e outros municípios de SP não avaliados nesta comparação CET; ausência de data de desativação não comprova operação em campo."
+}

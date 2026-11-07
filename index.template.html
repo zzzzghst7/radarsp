@@ -190,6 +190,16 @@
 }
 @media(max-width:370px){.sim-bottom{flex-wrap:wrap}.sim-progress{flex-basis:100%;text-align:left}.sim-input-row label{max-width:100px;white-space:normal}}
 
+
+/* V11 · auditoria de cobertura da CET, somente dados agregados */
+.cet-audit{margin:0 0 18px;padding:13px;border-radius:13px;border:1px solid #355565;background:#102838}
+.cet-audit h3{font-size:12px;color:#dffaf4;margin:0 0 7px}
+.cet-audit p{font-size:10px;line-height:1.5;color:#a7c0cb;margin:8px 0 0}
+.cet-audit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.cet-audit-cell{background:#183749;border-radius:9px;padding:9px 7px;min-width:0}
+.cet-audit-cell strong{display:block;font-size:19px;color:#e7ffff;font-variant-numeric:tabular-nums}
+.cet-audit-cell span{display:block;font-size:9px;color:#b6d1dc;line-height:1.3}
+
 </style>
 </head>
 <body>
@@ -210,6 +220,17 @@
         <div class="kpi"><div class="num" id="stat-known">—</div><small>Com velocidade cadastrada</small></div>
         <div class="kpi"><div class="num" id="stat-unknown">—</div><small>Sem velocidade informada</small></div>
       </div>
+    
+    <section class="cet-audit" id="cet-audit" aria-label="Auditoria de cobertura da CET" hidden>
+      <h3>CET-SP · conferência de cobertura</h3>
+      <div class="cet-audit-grid">
+        <div class="cet-audit-cell"><strong id="cet-match">—</strong><span>Provável correspondência</span></div>
+        <div class="cet-audit-cell"><strong id="cet-review">—</strong><span>Para revisão</span></div>
+        <div class="cet-audit-cell"><strong id="cet-unmatched">—</strong><span>Sem correspondência próxima</span></div>
+      </div>
+      <p id="cet-audit-note"></p>
+    </section>
+
     <label class="search-label" for="lookup">Explorar os dados</label>
     <div class="search-shell"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><input id="lookup" type="search" placeholder="Cidade ou nome de via..." autocomplete="off" aria-label="Pesquisar cidade ou via"></div>
     <div class="tabs" role="group" aria-label="Tipo de pesquisa"><button id="tab-cities" type="button" class="active" aria-pressed="true">Municípios</button><button id="tab-roads" type="button" aria-pressed="false">Vias</button></div>
@@ -312,6 +333,16 @@
  const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
  $('stat-total').textContent=fmt(DATA.total);$('stat-cities').textContent=fmt(DATA.city_count);
  $('stat-known').textContent=fmt(DATA.with_speed);$('stat-unknown').textContent=fmt(DATA.without_speed);
+
+ const cetAudit=DATA.cet_audit;
+ if(cetAudit){
+   $('cet-audit').hidden=false;
+   $('cet-match').textContent=fmt(cetAudit.cet_correspondencia_provavel);
+   $('cet-review').textContent=fmt(cetAudit.cet_revisao);
+   $('cet-unmatched').textContent=fmt(cetAudit.cet_sem_correspondencia_proxima);
+   $('cet-audit-note').textContent=`De ${fmt(cetAudit.cet_sem_desativacao)} linhas CET sem data de desativação, ${fmt(cetAudit.cet_sem_correspondencia_proxima)} não encontram registro a até 60 m na base atual. São candidatos para auditoria, não radares confirmados. ${fmt(cetAudit.cet_com_desativacao)} linhas históricas não foram somadas aos ${fmt(DATA.total)} registros principais.`;
+ }
+
  let tab='cities',query='', selected=null,shown=20,map=null,maplibregl=null,popup=null;
  const speedRows=DATA.speed_distribution.filter(d=>d.speed!=='Não informado').sort((a,b)=>b.count-a.count);
  for(const s of speedRows){const el=document.createElement('div');el.className='speed-row';
