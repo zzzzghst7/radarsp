@@ -62,7 +62,7 @@
 .shell,.shell.nav-active{display:block!important;height:100dvh!important;min-height:0!important;width:100%;position:relative}
 .map-section{position:absolute!important;inset:0!important;order:unset!important;width:100%;height:100dvh!important;min-height:0!important;max-height:none!important}
 #map{inset:0}
-.sidebar{position:fixed!important;z-index:10;top:15px;left:15px;bottom:15px;width:min(392px,calc(100vw - 30px));height:auto;max-height:calc(100dvh - 30px);border:1px solid #375364!important;border-radius:19px;box-shadow:0 18px 70px #03101edb;overflow:hidden;display:flex!important;flex-direction:column;min-height:0!important;transform:translateX(calc(-100% - 26px));visibility:show;pointer-events:none;transition:transform .25s ease,visibility .25s ease;background:#0d1b2aee;backdrop-filter:blur(18px)}
+.sidebar{position:fixed!important;z-index:10;top:15px;left:15px;bottom:15px;width:min(392px,calc(100vw - 30px));height:auto;max-height:calc(100dvh - 30px);border:1px solid #375364!important;border-radius:19px;box-shadow:0 18px 70px #03101edb;overflow:hidden;display:flex!important;flex-direction:column;min-height:0!important;transform:translateX(calc(-100% - 26px));visibility:hidden;pointer-events:none;transition:transform .25s ease,visibility .25s ease;background:#0d1b2aee;backdrop-filter:blur(18px)}
 .shell.drawer-open .sidebar{transform:translateX(0);visibility:visible;pointer-events:auto}
 .brand{padding:16px 18px!important;background:#102334d9;border-bottom:1px solid var(--line)}
 .brand-inline{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -206,7 +206,7 @@
 #zone-load-error code{color:#fff0cf}
 
 
-/* V13: consulta cartográfica apenas no modo Explorar dados. */
+/* Radares visíveis em Explorar e em Navegação, inclusive com a rota traçada. */
 .tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
 .tabs button{font-size:11px;padding:11px 4px}
 .point-list-row{gap:11px}
@@ -222,7 +222,7 @@
 .point-detail-line strong{color:#eaf9f8;text-align:right;max-width:65%;overflow-wrap:anywhere}
 .point-detail-note{font-size:10px;line-height:1.55;color:#adc6d0;margin:12px 0 0}
 .point-map-legend{display:none;position:absolute;z-index:3;top:60px;left:18px;max-width:280px;border-radius:11px;padding:10px 12px;border:1px solid #46677a;background:#0d2031e8;color:#e0f3f4;font-size:11px;box-shadow:0 8px 28px #0007}
-.shell.explore-mode .point-map-legend{display:block}
+.shell.explore-mode .point-map-legend,.shell.nav-active:not(.route-active):not(.drawer-open) .point-map-legend{display:block}
 .point-map-legend .legend-row{display:flex;align-items:center;gap:9px;margin:6px 0}
 .point-map-legend .sample{width:17px;height:17px;border:3px solid #e6394d;background:#fff;border-radius:50%;display:inline-block}
 .point-map-legend .sample.unknown{border-color:#95a1ac}
@@ -496,7 +496,6 @@
  }
  function focusRecord(f){
    if(!f||!map)return;
-   if(!document.querySelector('.shell')?.classList.contains('explore-mode'))return;
    map.flyTo({center:f.geometry.coordinates,zoom:Math.max(map.getZoom(),14),essential:true});
    showRecord(f);
  }
@@ -527,7 +526,8 @@
  function fitState(){map?.fitBounds([[-53.2,-25.3],[-44.6,-19.75]],{padding:75,maxZoom:7.2,duration:650});}
  function visibility(){
    if(!map||!map.getLayer('point-hit'))return;
-   const show=document.querySelector('.shell')?.classList.contains('explore-mode')&&!document.querySelector('.shell')?.classList.contains('route-active');
+   const shell=document.querySelector('.shell');
+   const show=!!shell&&(shell.classList.contains('explore-mode')||shell.classList.contains('nav-active'));
    for(const id of ['point-clusters','point-cluster-count','point-hit','point-sign']){
      if(map.getLayer(id))map.setLayoutProperty(id,'visibility',show?'visible':'none');
    }
@@ -557,17 +557,17 @@
          'text-font':['Noto Sans Regular'],'text-size':11,'text-allow-overlap':true,'text-ignore-placement':true},
          paint:{'text-color':'#171f28'}});
        for(const name of ['point-hit','point-clusters']){
-         map.on('mouseenter',name,()=>{if(document.querySelector('.shell')?.classList.contains('explore-mode'))map.getCanvas().style.cursor='pointer';});
+         map.on('mouseenter',name,()=>{if(!window.__ultronNavMapSelection)map.getCanvas().style.cursor='pointer';});
          map.on('mouseleave',name,()=>{map.getCanvas().style.cursor='';});
        }
        map.on('click','point-hit',e=>{
-         if(window.__ultronNavMapSelection||!document.querySelector('.shell')?.classList.contains('explore-mode'))return;
+         if(window.__ultronNavMapSelection)return;
          const feature=e.features?.[0];if(!feature)return;
          const original=rawById.get(String(feature.properties.id));
          if(original)showRecord(original,original.geometry.coordinates);
        });
        map.on('click','point-clusters',async e=>{
-         if(!document.querySelector('.shell')?.classList.contains('explore-mode'))return;
+         if(window.__ultronNavMapSelection)return;
          const f=e.features?.[0];if(!f)return;
          try{const zoom=await map.getSource('points').getClusterExpansionZoom(f.properties.cluster_id);
            map.easeTo({center:f.geometry.coordinates,zoom,essential:true});}

@@ -456,8 +456,9 @@
     state.map=map;state.lib=lib;
     if(!map.getSource('ultron-nav-route')){
       map.addSource('ultron-nav-route',{type:'geojson',data:emptyFeature()});
-      map.addLayer({id:'ultron-nav-shadow',type:'line',source:'ultron-nav-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#061f2c','line-width':11,'line-opacity':.8}});
-      map.addLayer({id:'ultron-nav-line',type:'line',source:'ultron-nav-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#6de1ce','line-width':6,'line-opacity':.98}});
+      const before=map.getLayer('point-clusters')?'point-clusters':undefined;
+      map.addLayer({id:'ultron-nav-shadow',type:'line',source:'ultron-nav-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#061f2c','line-width':11,'line-opacity':.8}},before);
+      map.addLayer({id:'ultron-nav-line',type:'line',source:'ultron-nav-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#6de1ce','line-width':6,'line-opacity':.98}},before);
     }
     map.on('click',evt=>{if(!state.choosing)return;const which=state.choosing;
       setEndpoint(which,[evt.lngLat.lng,evt.lngLat.lat],`Ponto marcado (${evt.lngLat.lat.toFixed(5)}, ${evt.lngLat.lng.toFixed(5)})`);stopMapSelection();});
